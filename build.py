@@ -280,81 +280,79 @@ body {{
   background: #ffffff;
   color: #1a1a1a;
   margin: 0; padding: 0;
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: 18px;
+  line-height: 1.6;
 }}
 a {{ color: #1a1a1a; }}
-.container {{ max-width: 1280px; margin: 0 auto; padding: 0 28px; }}
+.container {{ max-width: 1340px; margin: 0 auto; padding: 0 36px; }}
 
 /* ── Header ── */
-header {{ padding: 28px 0 14px; border-bottom: 1px solid #e0e0e0; }}
-header h1 {{ font-size: 22px; font-weight: 700; margin: 0 0 3px; letter-spacing: -.4px; font-family: Georgia, 'Times New Roman', serif; }}
-.subtitle {{ color: #555; font-size: 13px; margin: 0 0 5px; }}
-.caveat {{ color: #aaa; font-size: 11px; margin: 0; font-style: italic; }}
+header {{ padding: 32px 0 20px; border-bottom: 1px solid #c0c0c0; }}
+header h1 {{ font-size: 28px; font-weight: 700; margin: 0; letter-spacing: -.5px; font-family: Georgia, 'Times New Roman', serif; }}
 
 /* ── Stats strip ── */
 .stats-strip {{
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 0;
-  border-bottom: 1px solid #e0e0e0;
-  padding: 10px 0;
+  border-bottom: 1px solid #c0c0c0;
+  padding: 14px 0;
 }}
 .stat-card {{ padding: 6px 0; }}
-.stat-num {{ font-size: 20px; font-weight: 600; letter-spacing: -.5px; }}
-.stat-label {{ font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: #999; margin-top: 1px; }}
+.stat-num {{ font-size: 25px; font-weight: 600; letter-spacing: -.5px; }}
+.stat-label {{ font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: #555; margin-top: 2px; }}
 
 /* ── Filter bar ── */
 .filter-bar {{
   position: sticky; top: 0;
   background: #ffffff;
-  border-bottom: 1px solid #e0e0e0;
-  z-index: 100; padding: 8px 0;
+  border-bottom: 1px solid #c0c0c0;
+  z-index: 100; padding: 10px 0;
 }}
 .filter-inner {{
-  display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start;
+  display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start;
 }}
-.filter-group {{ display: flex; flex-direction: column; gap: 3px; }}
+.filter-group {{ display: flex; flex-direction: column; gap: 4px; }}
 .filter-group .glabel {{
-  font-size: 9px; text-transform: uppercase; letter-spacing: .07em; color: #bbb;
+  font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: #666;
 }}
 select, input[type="text"] {{
-  border: 1px solid #e0e0e0; background: #fff; color: #1a1a1a;
-  padding: 4px 8px; font-size: 13px; font-family: inherit;
-  border-radius: 3px; outline: none;
+  border: 1px solid #c0c0c0; background: #fff; color: #1a1a1a;
+  padding: 5px 10px; font-size: 16px; font-family: inherit;
+  border-radius: 4px; outline: none;
 }}
-select:focus, input:focus {{ border-color: #aaa; }}
+select:focus, input:focus {{ border-color: #777; }}
 .search-wrap {{ position: relative; display: inline-flex; align-items: center; }}
 .search-clear {{
-  position: absolute; right: 5px; border: none; background: none;
-  color: #ccc; cursor: pointer; font-size: 15px; line-height: 1;
+  position: absolute; right: 6px; border: none; background: none;
+  color: #999; cursor: pointer; font-size: 19px; line-height: 1;
   padding: 0; display: none;
 }}
-.search-clear:hover {{ color: #555; }}
+.search-clear:hover {{ color: #1a1a1a; }}
 .search-clear.visible {{ display: block; }}
-.cb-group {{ display: flex; flex-wrap: wrap; gap: 5px; max-width: 480px; }}
+.cb-group {{ display: flex; flex-wrap: wrap; gap: 6px; max-width: 540px; }}
 .cb-group label {{
-  display: flex; align-items: center; gap: 3px;
-  font-size: 12px; cursor: pointer; white-space: nowrap;
+  display: flex; align-items: center; gap: 4px;
+  font-size: 15px; cursor: pointer; white-space: nowrap;
 }}
 /* Year pills */
-.year-bar {{ display: flex; flex-wrap: wrap; gap: 4px; align-items: center; max-width: 600px; }}
+.year-bar {{ display: flex; flex-wrap: wrap; gap: 5px; align-items: center; max-width: 760px; }}
 .yr-shortcut {{
-  font-size: 10px; padding: 2px 7px; border: 1px solid #ccc;
-  border-radius: 10px; cursor: pointer; background: #fff; color: #555;
+  font-size: 13px; padding: 3px 9px; border: 1px solid #999;
+  border-radius: 12px; cursor: pointer; background: #fff; color: #444;
   font-family: inherit; white-space: nowrap;
 }}
-.yr-shortcut:hover {{ border-color: #888; color: #1a1a1a; }}
+.yr-shortcut:hover {{ border-color: #444; color: #1a1a1a; }}
 .yr-shortcut.active {{ background: #1a1a1a; color: #fff; border-color: #1a1a1a; }}
 .yr-pill {{
-  font-size: 11px; padding: 2px 6px; border: 1px solid #ddd;
-  border-radius: 10px; cursor: pointer; background: #fff; color: #888;
+  font-size: 14px; padding: 2px 8px; border: 1px solid #bbb;
+  border-radius: 12px; cursor: pointer; background: #fff; color: #555;
   font-family: inherit; white-space: nowrap; transition: all .1s;
 }}
-.yr-pill:hover {{ border-color: #999; color: #333; }}
+.yr-pill:hover {{ border-color: #555; color: #1a1a1a; }}
 .yr-pill.active {{ background: #1a1a1a; color: #fff; border-color: #1a1a1a; }}
 .reset-btn {{
-  font-size: 11px; color: #bbb; text-decoration: underline;
+  font-size: 14px; color: #666; text-decoration: underline;
   cursor: pointer; align-self: flex-end; padding-bottom: 4px;
   border: none; background: none; font-family: inherit;
 }}
@@ -363,88 +361,88 @@ select:focus, input:focus {{ border-color: #aaa; }}
 /* ── Scope toggle ── */
 .scope-toggle {{ display: flex; }}
 .scope-btn {{
-  font-size: 11px; padding: 3px 10px; border: 1px solid #ddd;
-  background: #fff; color: #888; cursor: pointer; font-family: inherit;
+  font-size: 14px; padding: 4px 12px; border: 1px solid #bbb;
+  background: #fff; color: #555; cursor: pointer; font-family: inherit;
   transition: all .1s; line-height: 1.4;
 }}
-.scope-btn:first-child {{ border-radius: 3px 0 0 3px; }}
-.scope-btn:last-child {{ border-radius: 0 3px 3px 0; border-left: none; }}
+.scope-btn:first-child {{ border-radius: 4px 0 0 4px; }}
+.scope-btn:last-child {{ border-radius: 0 4px 4px 0; border-left: none; }}
 .scope-btn.active {{ background: #1a1a1a; color: #fff; border-color: #1a1a1a; }}
-.scope-btn:not(.active):hover {{ background: #f5f5f5; color: #333; }}
-select#school-select {{ width: 200px; }}
+.scope-btn:not(.active):hover {{ background: #ebebeb; color: #1a1a1a; }}
+select#school-select {{ width: 220px; }}
 
 /* ── School spotlight ── */
 #spotlight {{
   display: none;
-  background: #fafafa;
-  border-bottom: 1px solid #e0e0e0;
-  padding: 12px 0;
+  background: #f2f2f2;
+  border-bottom: 1px solid #c0c0c0;
+  padding: 14px 0;
 }}
-.spotlight-inner {{ display: flex; gap: 32px; align-items: flex-start; flex-wrap: wrap; }}
-.spotlight-name {{ font-size: 16px; font-weight: 600; margin: 0 0 4px; }}
-.spotlight-meta {{ font-size: 12px; color: #555; }}
-.spotlight-stats {{ display: flex; gap: 20px; margin-top: 8px; flex-wrap: wrap; }}
+.spotlight-inner {{ display: flex; gap: 36px; align-items: flex-start; flex-wrap: wrap; }}
+.spotlight-name {{ font-size: 20px; font-weight: 600; margin: 0 0 4px; }}
+.spotlight-meta {{ font-size: 15px; color: #444; }}
+.spotlight-stats {{ display: flex; gap: 22px; margin-top: 10px; flex-wrap: wrap; }}
 .sstat {{ text-align: left; }}
-.sstat-val {{ font-size: 15px; font-weight: 600; }}
-.sstat-label {{ font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: #999; }}
-#spotlight-mini {{ flex: 1; min-width: 260px; height: 120px; }}
+.sstat-val {{ font-size: 19px; font-weight: 600; }}
+.sstat-label {{ font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: #555; }}
+#spotlight-mini {{ flex: 1; min-width: 260px; height: 130px; }}
 
 /* ── Sections ── */
-.section {{ padding: 22px 0 0; }}
-.section:last-of-type {{ padding-bottom: 24px; }}
+.section {{ padding: 26px 0 0; }}
+.section:last-of-type {{ padding-bottom: 28px; }}
 .section-title {{
-  font-size: 11px; font-variant: small-caps; letter-spacing: .06em;
-  color: #888; margin: 0 0 8px; text-transform: uppercase;
+  font-size: 14px; font-variant: small-caps; letter-spacing: .06em;
+  color: #555; margin: 0 0 10px; text-transform: uppercase;
 }}
-.chart-pair {{ display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }}
+.chart-pair {{ display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }}
 @media (max-width: 700px) {{ .chart-pair {{ grid-template-columns: 1fr; }} }}
-.chart-note {{ font-size: 10px; color: #bbb; margin: 4px 0 0; font-style: italic; }}
+.chart-note {{ font-size: 13px; color: #666; margin: 5px 0 0; font-style: italic; }}
 
-#timeline-chart {{ width: 100%; height: 520px; }}
+#timeline-chart {{ width: 100%; height: 540px; }}
 #gpa-chart {{ width: 100%; height: 300px; }}
 #grev-chart {{ width: 100%; height: 300px; }}
-#year-chart {{ width: 100%; height: 240px; }}
+#year-chart {{ width: 100%; height: 260px; }}
 
 /* ── Table ── */
 .table-header {{
   display: flex; justify-content: space-between; align-items: baseline;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }}
-.record-count {{ font-size: 11px; color: #bbb; }}
-table {{ width: 100%; border-collapse: collapse; font-size: 12px; }}
+.record-count {{ font-size: 14px; color: #666; }}
+table {{ width: 100%; border-collapse: collapse; font-size: 15px; }}
 th {{
-  font-variant: small-caps; font-size: 10px; letter-spacing: .05em;
-  text-align: left; color: #999; padding: 5px 7px;
-  border-bottom: 1px solid #e0e0e0;
+  font-variant: small-caps; font-size: 13px; letter-spacing: .05em;
+  text-align: left; color: #555; padding: 6px 8px;
+  border-bottom: 1px solid #c0c0c0;
   cursor: pointer; user-select: none; white-space: nowrap;
 }}
 th:hover {{ color: #1a1a1a; }}
-th .arr {{ margin-left: 2px; opacity: 0.35; }}
+th .arr {{ margin-left: 2px; opacity: 0.4; }}
 th.sorted .arr {{ opacity: 1; }}
-td {{ padding: 4px 7px; border-bottom: 1px solid #f0f0f0; }}
-tr:hover td {{ background: #fafafa; }}
+td {{ padding: 5px 8px; border-bottom: 1px solid #e5e5e5; }}
+tr:hover td {{ background: #f2f2f2; }}
 .dot {{
-  display: inline-block; width: 7px; height: 7px;
-  border-radius: 50%; margin-right: 4px; vertical-align: middle;
+  display: inline-block; width: 9px; height: 9px;
+  border-radius: 50%; margin-right: 5px; vertical-align: middle;
 }}
 .pagination {{
-  display: flex; gap: 3px; align-items: center;
-  justify-content: flex-end; margin-top: 8px; font-size: 12px;
+  display: flex; gap: 4px; align-items: center;
+  justify-content: flex-end; margin-top: 10px; font-size: 15px;
 }}
 .pbtn {{
-  border: 1px solid #e0e0e0; background: #fff; color: #1a1a1a;
-  padding: 2px 8px; cursor: pointer; font-size: 12px;
-  border-radius: 3px; font-family: inherit;
+  border: 1px solid #c0c0c0; background: #fff; color: #1a1a1a;
+  padding: 3px 10px; cursor: pointer; font-size: 15px;
+  border-radius: 4px; font-family: inherit;
 }}
-.pbtn:hover {{ background: #f5f5f5; }}
+.pbtn:hover {{ background: #ebebeb; }}
 .pbtn.active {{ background: #1a1a1a; color: #fff; border-color: #1a1a1a; }}
 .pbtn:disabled {{ opacity: 0.35; cursor: default; }}
-.pinfo {{ color: #bbb; margin: 0 5px; font-size: 11px; }}
+.pinfo {{ color: #666; margin: 0 6px; font-size: 14px; }}
 
 /* ── Footer ── */
 footer {{
-  border-top: 1px solid #e0e0e0;
-  padding: 16px 0; font-size: 11px; color: #bbb;
+  border-top: 1px solid #c0c0c0;
+  padding: 18px 0; font-size: 14px; color: #666;
 }}
 </style>
 </head>
@@ -453,8 +451,6 @@ footer {{
 
 <header>
   <h1>Political Science PhD Admissions</h1>
-  <p class="subtitle" id="hdr-subtitle">{n:,} records &middot; GradCafe {year_range} &middot; Updated {last_updated}</p>
-  <p class="caveat">Self-reported by applicants on thegradcafe.com. Not representative of actual admission rates. Use for reference only.</p>
 </header>
 
 <div class="filter-bar">
@@ -496,6 +492,7 @@ footer {{
           <button class="yr-shortcut active" id="yr-all">All years</button>
           <button class="yr-shortcut" id="yr-last10">Last 10 years</button>
           <button class="yr-shortcut" id="yr-last5">Last 5 years</button>
+          <button class="yr-shortcut" id="yr-last1">Last year</button>
           <span style="color:#ddd;font-size:11px;align-self:center">|</span>
           <div id="year-pills"></div>
         </div>
@@ -711,15 +708,20 @@ function syncShortcutBtns() {{
   const allActive = FALL_YEARS.every(y => activeYears.has(y));
   const last10Yrs = FALL_YEARS.filter(y => y >= maxY - 9);
   const last5Yrs  = FALL_YEARS.filter(y => y >= maxY - 4);
+  const last1Yrs  = FALL_YEARS.filter(y => y === maxY);
   const last10Active = last10Yrs.length > 0
     && last10Yrs.every(y => activeYears.has(y))
     && FALL_YEARS.filter(y => y < maxY - 9).every(y => !activeYears.has(y));
   const last5Active = last5Yrs.length > 0
     && last5Yrs.every(y => activeYears.has(y))
     && FALL_YEARS.filter(y => y < maxY - 4).every(y => !activeYears.has(y));
+  const last1Active = last1Yrs.length > 0
+    && last1Yrs.every(y => activeYears.has(y))
+    && FALL_YEARS.filter(y => y < maxY).every(y => !activeYears.has(y));
   document.getElementById('yr-all').classList.toggle('active', allActive);
   document.getElementById('yr-last10').classList.toggle('active', last10Active);
   document.getElementById('yr-last5').classList.toggle('active', last5Active);
+  document.getElementById('yr-last1').classList.toggle('active', last1Active);
 }}
 
 let debounceTimer;
@@ -792,6 +794,15 @@ document.getElementById('yr-last5').addEventListener('click', () => {{
   activeYears = new Set(FALL_YEARS.filter(y => y >= maxY - 4));
   document.querySelectorAll('.yr-pill').forEach(p => {{
     p.classList.toggle('active', +p.dataset.year >= maxY - 4);
+  }});
+  syncShortcutBtns();
+  applyFilters();
+}});
+document.getElementById('yr-last1').addEventListener('click', () => {{
+  const maxY = FALL_YEARS.length ? Math.max(...FALL_YEARS) : 2026;
+  activeYears = new Set(FALL_YEARS.filter(y => y === maxY));
+  document.querySelectorAll('.yr-pill').forEach(p => {{
+    p.classList.toggle('active', +p.dataset.year === maxY);
   }});
   syncShortcutBtns();
   applyFilters();
@@ -876,8 +887,8 @@ function renderSpotlight() {{
       barmode:'stack',
       paper_bgcolor:'#fafafa', plot_bgcolor:'#fafafa',
       margin:{{l:28,r:8,t:8,b:28}},
-      xaxis:{{tickfont:{{size:10,color:'#aaa'}},tickformat:'d',gridcolor:'#eee'}},
-      yaxis:{{tickfont:{{size:10,color:'#aaa'}},gridcolor:'#eee',zeroline:false}},
+      xaxis:{{tickfont:{{size:13,color:'#555'}},tickformat:'d',gridcolor:'#d5d5d5'}},
+      yaxis:{{tickfont:{{size:13,color:'#555'}},gridcolor:'#d5d5d5',zeroline:false}},
       showlegend:false,
     }}, {{...CFG, staticPlot:false}});
   }} else {{
@@ -930,10 +941,10 @@ function renderTimeline() {{
   Plotly.react('timeline-chart', traces, {{
     paper_bgcolor:'#fff', plot_bgcolor:'#fff',
     margin:{{l:8,r:16,t:6,b:40}},
-    xaxis:{{tickvals,ticktext,tickfont:{{size:11,color:'#aaa'}},
-            gridcolor:'#eee',gridwidth:1,zeroline:false,showline:false}},
+    xaxis:{{tickvals,ticktext,tickfont:{{size:14,color:'#555'}},
+            gridcolor:'#d5d5d5',gridwidth:1,zeroline:false,showline:false}},
     yaxis:{{visible:false, range:[-1, maxStack + yPad], zeroline:false}},
-    legend:{{orientation:'h',x:0,y:-0.12,font:{{size:11}}}},
+    legend:{{orientation:'h',x:0,y:-0.12,font:{{size:14}}}},
     hovermode:'closest',
   }}, CFG);
 }}
@@ -970,8 +981,8 @@ function renderScores() {{
   const baseLayout = {{
     paper_bgcolor:'#fff', plot_bgcolor:'#fff',
     margin:{{l:44,r:16,t:24,b:40}},
-    xaxis:{{tickfont:{{size:11,color:'#bbb'}},gridcolor:'#eee',zeroline:false}},
-    yaxis:{{tickfont:{{size:10,color:'#bbb'}},gridcolor:'#eee',zeroline:false}},
+    xaxis:{{tickfont:{{size:14,color:'#666'}},gridcolor:'#d5d5d5',zeroline:false}},
+    yaxis:{{tickfont:{{size:13,color:'#666'}},gridcolor:'#d5d5d5',zeroline:false}},
     showlegend:false,
   }};
 
@@ -981,10 +992,10 @@ function renderScores() {{
   document.getElementById('grev-note').textContent = grevCount+' records with GRE-V data (new scale 130–170 only)';
 
   Plotly.react('gpa-chart', gpaTraces.length ? gpaTraces : [{{type:'box',y:[],name:''}}],
-    {{...baseLayout, title:{{text:'GPA',font:{{size:12,color:'#999'}},x:0.04,xanchor:'left'}},
+    {{...baseLayout, title:{{text:'GPA',font:{{size:15,color:'#999'}},x:0.04,xanchor:'left'}},
       yaxis:{{...baseLayout.yaxis, range:[2.5,4.2]}}}}, CFG);
   Plotly.react('grev-chart', grevTraces.length ? grevTraces : [{{type:'box',y:[],name:''}}],
-    {{...baseLayout, title:{{text:'GRE Verbal',font:{{size:12,color:'#999'}},x:0.04,xanchor:'left'}},
+    {{...baseLayout, title:{{text:'GRE Verbal',font:{{size:15,color:'#999'}},x:0.04,xanchor:'left'}},
       yaxis:{{...baseLayout.yaxis, range:[140,172]}}}}, CFG);
 }}
 
@@ -1024,9 +1035,9 @@ function renderYearTrends() {{
   Plotly.react('year-chart', traces, {{
     paper_bgcolor:'#fff', plot_bgcolor:'#fff',
     margin:{{l:44,r:16,t:8,b:36}},
-    xaxis:{{tickfont:{{size:11,color:'#bbb'}},tickformat:'d',gridcolor:'#eee',zeroline:false}},
-    yaxis:{{tickfont:{{size:10,color:'#bbb'}},gridcolor:'#eee',zeroline:false}},
-    legend:{{orientation:'h',x:0,y:-0.2,font:{{size:11}}}},
+    xaxis:{{tickfont:{{size:14,color:'#666'}},tickformat:'d',gridcolor:'#d5d5d5',zeroline:false}},
+    yaxis:{{tickfont:{{size:13,color:'#666'}},gridcolor:'#d5d5d5',zeroline:false}},
+    legend:{{orientation:'h',x:0,y:-0.2,font:{{size:14}}}},
     hovermode:'x unified',
   }}, CFG);
 }}
