@@ -1,7 +1,7 @@
 <h1 align="center">Political Science PhD Admissions via GradCafe</h1>
 
 <p align="center">
-  <strong> Self-reported Political Science PhD admissions outcomes</strong><br>
+  <strong>Self-reported Political Science PhD admissions outcomes</strong><br>
   GradCafe · 2006–2026
 </p>
 
@@ -20,20 +20,12 @@
 
 <table>
   <tr>
-    <td width="50%">
-      <h3>🕰️ When do decisions come out?</h3>
-    </td>
-    <td width="50%">
-      <h3>🏛️ Which programs appear most often?</h3>
-    </td>
+    <td width="50%">🕰️ <strong>Decision timing</strong></td>
+    <td width="50%">🏛️ <strong>Program frequency</strong></td>
   </tr>
   <tr>
-    <td width="50%">
-      <h3>📈 How do cycles vary over time?</h3>
-    </td>
-    <td width="50%">
-      <h3>🎓 What profiles do applicants report (GPA, GRE...)?</h3>
-    </td>
+    <td width="50%">📈 <strong>Admissions cycles over time</strong></td>
+    <td width="50%">🎓 <strong>Applicant profiles: GPA, GRE, etc.</strong></td>
   </tr>
 </table>
 
@@ -41,7 +33,7 @@
 
 <p align="center">
   <a href="https://nicolas-izquierdo.github.io/gradcafe-polisci/">
-    <img src="https://img.shields.io/badge/Open_interactive_browser_%E2%86%92-2d6a2d?style=for-the-badge" alt="Open interactive browser →">
+    <img width="320" src="https://img.shields.io/badge/Open_interactive_browser_%E2%86%92-2d6a2d?style=for-the-badge" alt="Open interactive browser →">
   </a>
 </p>
 
