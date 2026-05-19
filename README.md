@@ -9,6 +9,8 @@ Use it to get a rough sense of:
 - which programs appear most often in the data,
 - and what applicants report about GPA/GRE profiles.
 
+<br>
+
 <p align="center">
   <a href="https://nicolas-izquierdo.github.io/gradcafe-polisci/">
     <img src="https://img.shields.io/badge/Browse%20the%20data%20%E2%86%92-2d6a2d?style=for-the-badge" alt="Browse the data →">
