@@ -2,10 +2,6 @@ data/raw/
 data/school_map.csv
 __pycache__/
 *.py[cod]
-*.egg-info/
-dist/
-build/
-.env
 .venv/
 venv/
 .claude/

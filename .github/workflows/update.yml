@@ -2,51 +2,29 @@ name: Update GradCafe Data
 
 on:
   schedule:
-    # Every Sunday 07:00 UTC
-    - cron: '0 7 * * 0'
+    - cron: '0 7 * * 0'  # Sundays 07:00 UTC
   workflow_dispatch:
 
 jobs:
   update:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Check season (Jan–Apr only for scheduled runs)
-        id: check_month
-        run: |
-          MONTH=$(date +%-m)
-          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] || ([ "$MONTH" -ge 1 ] && [ "$MONTH" -le 4 ]); then
-            echo "run=true" >> $GITHUB_OUTPUT
-          else
-            echo "run=false" >> $GITHUB_OUTPUT
-          fi
-
       - uses: actions/checkout@v4
-        if: steps.check_month.outputs.run == 'true'
-
-      - name: Set up Python
-        if: steps.check_month.outputs.run == 'true'
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
-
-      - name: Install system dependencies
-        if: steps.check_month.outputs.run == 'true'
+      - run: sudo apt-get update -qq && sudo apt-get install -y xvfb chromium-browser
+      - run: pip install -r requirements.txt
+      - name: Run update (admission season Jan–Apr only)
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y xvfb chromium-browser
-
-      - name: Install Python dependencies
-        if: steps.check_month.outputs.run == 'true'
-        run: pip install -r requirements.txt
-
-      - name: Run recent update (with virtual display)
-        if: steps.check_month.outputs.run == 'true'
-        run: xvfb-run --auto-servernum python build.py --recent
-
+          MONTH=$(date +%-m)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || ([ "$MONTH" -ge 1 ] && [ "$MONTH" -le 4 ]); then
+            xvfb-run --auto-servernum python build.py --recent
+          else
+            echo "Outside admission season, skipping."
+          fi
       - name: Commit and push if changed
-        if: steps.check_month.outputs.run == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

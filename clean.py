@@ -1,8 +1,6 @@
 """School name normalization and decision class cleaning."""
 
 import re
-import csv
-import os
 
 # (pattern, canonical_name, usnwr_rank)
 SCHOOL_RULES = [
@@ -251,16 +249,3 @@ def normalize_degree(raw: str) -> str:
     return "Other"
 
 
-def save_school_map(rows: list[dict], path: str) -> None:
-    """Write the static school map CSV."""
-    os.makedirs(os.path.dirname(path), exist_ok=True) if os.path.dirname(path) else None
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["pattern", "canonical_name", "rank_usnwr"])
-        writer.writeheader()
-        for pat, name, rank in SCHOOL_RULES:
-            writer.writerow({"pattern": pat, "canonical_name": name, "rank_usnwr": rank})
-
-
-def build_school_map(output_path: str = "data/school_map.csv") -> None:
-    save_school_map(SCHOOL_RULES, output_path)
-    print(f"School map saved to {output_path} ({len(SCHOOL_RULES)} patterns)")

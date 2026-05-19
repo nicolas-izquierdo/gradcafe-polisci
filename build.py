@@ -3,9 +3,8 @@
 import argparse
 import csv
 import json
-import re
 import statistics
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 
 import clean as c
@@ -1156,9 +1155,6 @@ def run(recent_only: bool = False, test_seasons: list | None = None, html_only: 
         print(f"HTML written ({len(html):,} bytes)")
         return
 
-    # Build school map
-    c.build_school_map(str(DATA_DIR / "school_map.csv"))
-
     # Load Deedy baseline — PhD only
     all_deedy = load_deedy_baseline()
     deedy_rows = [r for r in all_deedy if r.get("degree") == "PhD"]
@@ -1201,28 +1197,7 @@ def run(recent_only: bool = False, test_seasons: list | None = None, html_only: 
     print("Generating docs/index.html ...")
     html = generate_html(all_rows, today)
     HTML_PATH.write_text(html, encoding="utf-8")
-    print(f"HTML written ({len(html):,} bytes)")
-
-    # Summary
-    print("\n--- Summary ---")
-    print(f"Total records: {len(all_rows):,}")
-    dcount = sum(1 for r in all_rows if r.get("source") == "deedy_2015")
-    scount = sum(1 for r in all_rows if r.get("source") == "gradcafe_scrape")
-    print(f"  Deedy PhD: {dcount:,}")
-    print(f"  GradCafe scrape: {scount:,}")
-    dec_counts = {}
-    for r in all_rows:
-        d = r.get("decision_class", "Other")
-        dec_counts[d] = dec_counts.get(d, 0) + 1
-    for d, ct in sorted(dec_counts.items(), key=lambda x: -x[1]):
-        print(f"  {d}: {ct:,}")
-
-    print("\nFirst 10 rows:")
-    cols = ["school_clean", "season_code", "degree", "decision_class", "date_posted", "gpa", "gre_v"]
-    print("  ".join(cols))
-    print("-" * 80)
-    for row in all_rows[:10]:
-        print("  ".join(str(row.get(col, "")) for col in cols))
+    print(f"HTML written ({len(html):,} bytes) — {len(all_rows):,} records")
 
 
 if __name__ == "__main__":
