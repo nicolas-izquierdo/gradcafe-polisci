@@ -6,9 +6,6 @@
 </p>
 
 <p align="center">
-  <a href="https://nicolas-izquierdo.github.io/gradcafe-polisci/">
-    <img src="https://img.shields.io/badge/Browse_the_data-2d6a2d?style=for-the-badge&logo=githubpages&logoColor=white" alt="Browse the data">
-  </a>
   <img src="https://img.shields.io/badge/Years-2006--2026-1f6feb?style=for-the-badge" alt="Years covered">
   <img src="https://img.shields.io/badge/Field-Political%20Science-8b5cf6?style=for-the-badge" alt="Field">
   <img src="https://img.shields.io/badge/License-MIT-f97316?style=for-the-badge" alt="MIT License">
