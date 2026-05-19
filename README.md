@@ -12,7 +12,7 @@
 ## Information on...
 
 - 🕰️ **Decision timing** (e.g., when are admissions more frequent for a given program?)
-- 📈 **Admissions cycles over time**
+- 📈 **Admissions cycles over time** (2006 through 2026)
 - 🎓 **Applicant profiles:** GPA, GRE, international status, etc.
 - 🏛️ **Distribution of application outcomes** (although noisy and inaccurate!)
 
