@@ -1,4 +1,4 @@
-# Political Science PhD Admissions via GradCafe Data
+# Political Science PhD Admissions via GradCafe
 
 <p align="center">
   <strong>A searchable, historical dataset of self-reported Political Science PhD admissions outcomes</strong><br>
