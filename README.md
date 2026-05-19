@@ -18,16 +18,10 @@
 
 ## Functions
 
-<table>
-  <tr>
-    <td width="50%">🕰️ <strong>Decision timing</strong></td>
-    <td width="50%">🏛️ <strong>Program frequency</strong></td>
-  </tr>
-  <tr>
-    <td width="50%">📈 <strong>Admissions cycles over time</strong></td>
-    <td width="50%">🎓 <strong>Applicant profiles: GPA, GRE, etc.</strong></td>
-  </tr>
-</table>
+- 🕰️ **Decision timing**
+- 🏛️ **Program frequency**
+- 📈 **Admissions cycles over time**
+- 🎓 **Applicant profiles:** GPA, GRE, etc.
 
 <br>
 
