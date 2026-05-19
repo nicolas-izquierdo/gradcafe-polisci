@@ -22,21 +22,17 @@
   <tr>
     <td width="50%">
       <h3>🕰️ When do decisions come out?</h3>
-      <p>Compare admissions timing across programs and years.</p>
     </td>
     <td width="50%">
       <h3>🏛️ Which programs appear most often?</h3>
-      <p>Browse frequently reported Political Science PhD programs.</p>
     </td>
   </tr>
   <tr>
     <td width="50%">
       <h3>📈 How do cycles vary over time?</h3>
-      <p>Look at historical patterns from 2006 to 2026.</p>
     </td>
     <td width="50%">
-      <h3>🎓 What profiles do applicants report?</h3>
-      <p>Explore self-reported GPA/GRE information where available.</p>
+      <h3>🎓 What profiles do applicants report (GPA, GRE...)?</h3>
     </td>
   </tr>
 </table>
