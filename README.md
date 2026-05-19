@@ -18,12 +18,28 @@
 
 ## What you can explore
 
-| Question | What the data helps you see |
-|---|---|
-| **When do decisions come out?** | Compare admissions timing across programs and years. |
-| **Which programs appear most often?** | Browse frequently reported Political Science PhD programs. |
-| **How do cycles vary over time?** | Look at historical patterns from 2006 to 2026. |
-| **What profiles do applicants report?** | Explore self-reported GPA/GRE information where available. |
+<table>
+  <tr>
+    <td width="50%">
+      <h3>🕰️ When do decisions come out?</h3>
+      <p>Compare admissions timing across programs and years.</p>
+    </td>
+    <td width="50%">
+      <h3>🏛️ Which programs appear most often?</h3>
+      <p>Browse frequently reported Political Science PhD programs.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <h3>📈 How do cycles vary over time?</h3>
+      <p>Look at historical patterns from 2006 to 2026.</p>
+    </td>
+    <td width="50%">
+      <h3>🎓 What profiles do applicants report?</h3>
+      <p>Explore self-reported GPA/GRE information where available.</p>
+    </td>
+  </tr>
+</table>
 
 <br>
 
