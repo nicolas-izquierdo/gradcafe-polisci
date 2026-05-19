@@ -371,7 +371,7 @@ def _get_page_with_driver(
 
 def scrape_gradcafe(seasons: list[str]) -> list[dict]:
     """Scrape GradCafe for given season codes using a real Chrome browser."""
-    degrees = ["PhD", "MA"]
+    degrees = ["PhD"]
     all_rows: list[dict] = []
 
     # Check if all pages are already cached to avoid launching browser
