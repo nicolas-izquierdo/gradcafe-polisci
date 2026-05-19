@@ -2,7 +2,7 @@
 
 <p align="center">
   <strong>A searchable, historical dataset of self-reported Political Science PhD admissions outcomes</strong><br>
-  GradCafe posts · 2006–2026 · timelines, programs, GPA/GRE profiles
+  GradCafe posts · 2006–2026
 </p>
 
 <p align="center">
