@@ -2,7 +2,7 @@
 
 <p align="center">
   <strong> Self-reported Political Science PhD admissions outcomes</strong><br>
-  GradCafe posts · 2006–2026
+  GradCafe · 2006–2026
 </p>
 
 <p align="center">
