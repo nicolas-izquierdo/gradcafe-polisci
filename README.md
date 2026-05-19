@@ -56,7 +56,7 @@ The data comes from:
       <img src="https://img.shields.io/badge/License-MIT-f97316?style=for-the-badge" alt="MIT License">
     </td>
     <td>
-      Released under the <strong>MIT License</strong>. This project is intended as a small public-good resource for applicants, students, and researchers. The license is permissive: reuse, modification, and redistribution are allowed. Still, please preserve attribution and do not present noisy self-reported data as official admissions statistics.
+      Released under the <strong>MIT License</strong>. This project is intended as a small public-good resource for applicants and students. The license is permissive: reuse, modification, and redistribution are allowed. Please preserve attribution and do not present noisy self-reported data as official admissions statistics.
     </td>
   </tr>
 </table>
