@@ -18,10 +18,10 @@
 
 ## Information on...
 
-- 🕰️ **Decision timing**
-- 🏛️ **Program frequency**
+- 🕰️ **Decision timing** (e.g., when are admissions more frequent for a given program?)
 - 📈 **Admissions cycles over time**
-- 🎓 **Applicant profiles:** GPA, GRE, etc.
+- 🎓 **Applicant profiles:** GPA, GRE, international status, etc.
+- 🏛️ **Distribution of application outcomes** (very noisy and inaccurate!)
 
 <br>
 
