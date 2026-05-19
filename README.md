@@ -58,6 +58,3 @@ The data comes from:
   </tr>
 </table>
 
-<p align="center">
-  <sub>No affiliation with GradCafe. Built for informational and research purposes.</sub>
-</p>
