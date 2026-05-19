@@ -148,6 +148,22 @@ def load_deedy_baseline() -> list[dict]:
                 season_year = yr
 
         date_posted = _parse_deedy_date(col("date_add"))
+
+        # Infer season from date when season field is blank
+        if not season_code and date_posted and len(date_posted) >= 7:
+            try:
+                yr = int(date_posted[:4])
+                mo = int(date_posted[5:7])
+                # PhD notifications arrive Jan-May for the same fall cycle
+                # e.g. Feb 2012 -> F12 (Fall 2012 entry)
+                if 1 <= mo <= 7:
+                    season_year = yr
+                else:
+                    season_year = yr + 1
+                season_code = f"F{season_year % 100:02d}"
+            except (ValueError, IndexError):
+                pass
+
         gpa = _safe_float(col("gpa"))
         gre_v = _safe_int(col("gre_v"))
         gre_q = _safe_int(col("gre_q"))
