@@ -251,6 +251,12 @@ def generate_html(rows: list[dict], last_updated: str) -> str:
     fall_years_json = json.dumps(fall_years)
     colors_json = json.dumps(_DECISION_COLORS)
 
+    # Top-30 school indices (ranks 1–30 in clean.py SCHOOL_RULES)
+    top30_names = {name for _, name, rank in c.SCHOOL_RULES if rank and rank <= 30}
+    schools_list = json.loads(schools_json)
+    top30_idxs_json = json.dumps([i for i, s in enumerate(schools_list) if s in top30_names])
+    top30_count = sum(1 for s in schools_list if s in top30_names)
+
     # Overall acceptance rate for display
     accepted = sum(1 for r in rows if r.get("decision_class") == "Accepted")
     pct_acc = f"{100*accepted/n:.1f}" if n else "0"
@@ -282,7 +288,7 @@ a {{ color: #1a1a1a; }}
 
 /* ── Header ── */
 header {{ padding: 28px 0 14px; border-bottom: 1px solid #e0e0e0; }}
-header h1 {{ font-size: 21px; font-weight: 600; margin: 0 0 3px; letter-spacing: -.3px; }}
+header h1 {{ font-size: 22px; font-weight: 700; margin: 0 0 3px; letter-spacing: -.4px; font-family: Georgia, 'Times New Roman', serif; }}
 .subtitle {{ color: #555; font-size: 13px; margin: 0 0 5px; }}
 .caveat {{ color: #aaa; font-size: 11px; margin: 0; font-style: italic; }}
 
@@ -353,6 +359,19 @@ select:focus, input:focus {{ border-color: #aaa; }}
   border: none; background: none; font-family: inherit;
 }}
 .reset-btn:hover {{ color: #1a1a1a; }}
+
+/* ── Scope toggle ── */
+.scope-toggle {{ display: flex; }}
+.scope-btn {{
+  font-size: 11px; padding: 3px 10px; border: 1px solid #ddd;
+  background: #fff; color: #888; cursor: pointer; font-family: inherit;
+  transition: all .1s; line-height: 1.4;
+}}
+.scope-btn:first-child {{ border-radius: 3px 0 0 3px; }}
+.scope-btn:last-child {{ border-radius: 0 3px 3px 0; border-left: none; }}
+.scope-btn.active {{ background: #1a1a1a; color: #fff; border-color: #1a1a1a; }}
+.scope-btn:not(.active):hover {{ background: #f5f5f5; color: #333; }}
+select#school-select {{ width: 200px; }}
 
 /* ── School spotlight ── */
 #spotlight {{
@@ -442,6 +461,19 @@ footer {{
   <div class="container">
     <div class="filter-inner">
       <div class="filter-group">
+        <span class="glabel">Programs</span>
+        <div class="scope-toggle">
+          <button class="scope-btn active" id="scope-featured">Featured (30)</button>
+          <button class="scope-btn" id="scope-all">All Programs</button>
+        </div>
+      </div>
+      <div class="filter-group" id="school-group-featured">
+        <span class="glabel">School</span>
+        <select id="school-select">
+          <option value="">All 30 featured</option>
+        </select>
+      </div>
+      <div class="filter-group" id="school-group-all" style="display:none">
         <span class="glabel">School</span>
         <div class="search-wrap">
           <input type="text" id="school-search" placeholder="Type school name&hellip;" style="width:200px;padding-right:22px" autocomplete="off">
@@ -568,6 +600,7 @@ const SCHOOLS = {schools_json};
 const SCHOOL_STATS = {school_stats_json};
 const YEAR_STATS = {year_stats_json};
 const FALL_YEARS = {fall_years_json};
+const TOP30_IDXS = new Set({top30_idxs_json});
 const COLORS = {colors_json};
 
 const DEC_NAMES = ["Accepted","Rejected","Waitlisted","Interview","Other"];
@@ -580,6 +613,7 @@ let schoolFilter = "";
 let exactSchool = null;  // matched school name from SCHOOLS
 let activeYears = new Set(FALL_YEARS);
 let activeDecs = new Set([0,1,2,3,4]);
+let top30Mode = true;
 let sortCI = 9;  // date
 let sortDir = -1;
 let page = 1;
@@ -595,6 +629,19 @@ const CFG = {{responsive:true,displaylogo:false,modeBarButtonsToRemove:['toImage
     btn.textContent = y;
     btn.dataset.year = y;
     container.append(btn);
+  }});
+}})();
+
+// ── Populate school select ───────────────────────────────────────────────
+(function() {{
+  const sel = document.getElementById('school-select');
+  const sorted = [...TOP30_IDXS].map(i => ({{i, name: SCHOOLS[i]}}))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  sorted.forEach(({{i, name}}) => {{
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = name;
+    sel.append(opt);
   }});
 }})();
 
@@ -627,15 +674,28 @@ function tooltip(r) {{
 
 // ── Filtering ────────────────────────────────────────────────────────────
 function applyFilters() {{
-  const sq = schoolFilter.toLowerCase().trim();
   exactSchool = null;
-  if (sq) {{
-    // Find best school match
+  const selEl = document.getElementById('school-select');
+  const selectedIdx = (top30Mode && selEl && selEl.value !== '') ? +selEl.value : -1;
+  const sq = top30Mode ? '' : schoolFilter.toLowerCase().trim();
+
+  if (top30Mode && selectedIdx >= 0) {{
+    exactSchool = SCHOOLS[selectedIdx];
+  }} else if (!top30Mode && sq) {{
     const matches = SCHOOLS.filter(s => s.toLowerCase().includes(sq));
     exactSchool = matches.length === 1 ? matches[0] : null;
   }}
+
   F = DATA.filter(r => {{
-    if (sq && !SCHOOLS[r[0]].toLowerCase().includes(sq)) return false;
+    if (top30Mode) {{
+      if (selectedIdx >= 0) {{
+        if (r[0] !== selectedIdx) return false;
+      }} else {{
+        if (!TOP30_IDXS.has(r[0])) return false;
+      }}
+    }} else {{
+      if (sq && !SCHOOLS[r[0]].toLowerCase().includes(sq)) return false;
+    }}
     if (!activeYears.has(r[1])) return false;
     if (!activeDecs.has(r[3])) return false;
     return true;
@@ -667,6 +727,29 @@ document.getElementById('search-clear').addEventListener('click', () => {{
   document.getElementById('search-clear').classList.remove('visible');
   applyFilters();
 }});
+document.getElementById('scope-featured').addEventListener('click', () => {{
+  if (top30Mode) return;
+  top30Mode = true;
+  document.getElementById('scope-featured').classList.add('active');
+  document.getElementById('scope-all').classList.remove('active');
+  document.getElementById('school-group-featured').style.display = '';
+  document.getElementById('school-group-all').style.display = 'none';
+  schoolFilter = '';
+  applyFilters();
+}});
+document.getElementById('scope-all').addEventListener('click', () => {{
+  if (!top30Mode) return;
+  top30Mode = false;
+  document.getElementById('scope-all').classList.add('active');
+  document.getElementById('scope-featured').classList.remove('active');
+  document.getElementById('school-group-featured').style.display = 'none';
+  document.getElementById('school-group-all').style.display = '';
+  document.getElementById('school-select').value = '';
+  applyFilters();
+}});
+document.getElementById('school-select').addEventListener('change', () => {{
+  applyFilters();
+}});
 document.getElementById('dec-checkboxes').addEventListener('change', e => {{
   activeDecs.clear();
   document.querySelectorAll('#dec-checkboxes input:checked').forEach(cb => activeDecs.add(+cb.value));
@@ -696,6 +779,12 @@ document.getElementById('yr-recent').addEventListener('click', () => {{
   applyFilters();
 }});
 document.getElementById('reset-btn').addEventListener('click', () => {{
+  top30Mode = true;
+  document.getElementById('scope-featured').classList.add('active');
+  document.getElementById('scope-all').classList.remove('active');
+  document.getElementById('school-group-featured').style.display = '';
+  document.getElementById('school-group-all').style.display = 'none';
+  document.getElementById('school-select').value = '';
   document.getElementById('school-search').value = '';
   document.getElementById('search-clear').classList.remove('visible');
   schoolFilter = '';
@@ -720,17 +809,19 @@ function updateStats() {{
 // ── School spotlight ──────────────────────────────────────────────────────
 function renderSpotlight() {{
   const el = document.getElementById('spotlight');
-  if (!schoolFilter.trim()) {{ el.style.display='none'; return; }}
+
+  let sidx = -1;
+  if (top30Mode) {{
+    const selEl = document.getElementById('school-select');
+    if (selEl && selEl.value !== '') sidx = +selEl.value;
+  }} else if (schoolFilter.trim()) {{
+    const sq = schoolFilter.toLowerCase().trim();
+    SCHOOLS.forEach((s, i) => {{ if (s.toLowerCase().includes(sq) && sidx < 0) sidx = i; }});
+  }}
+
+  if (sidx < 0) {{ el.style.display='none'; return; }}
 
   el.style.display='block';
-  const sq = schoolFilter.toLowerCase().trim();
-
-  // Find matching schools
-  const matchIdxs = [];
-  SCHOOLS.forEach((s,i) => {{ if (s.toLowerCase().includes(sq)) matchIdxs.push(i); }});
-  if (!matchIdxs.length) {{ el.style.display='none'; return; }}
-
-  const sidx = matchIdxs[0];
   const sname = SCHOOLS[sidx];
   const ss = SCHOOL_STATS[sname];
 
@@ -1007,7 +1098,7 @@ function renderAll() {{
   renderTable();
 }}
 
-renderAll();
+applyFilters();
 </script>
 </body>
 </html>"""
@@ -1018,9 +1109,20 @@ renderAll();
 # Main pipeline
 # ---------------------------------------------------------------------------
 
-def run(recent_only: bool = False, test_seasons: list | None = None) -> None:
+def run(recent_only: bool = False, test_seasons: list | None = None, html_only: bool = False) -> None:
     DATA_DIR.mkdir(exist_ok=True)
     DOCS_DIR.mkdir(exist_ok=True)
+
+    if html_only:
+        print("HTML-only mode: loading existing CSV ...")
+        all_rows = load_existing_csv()
+        today = LAST_UPDATED_PATH.read_text().strip() if LAST_UPDATED_PATH.exists() else date.today().isoformat()
+        print(f"Loaded {len(all_rows):,} rows from CSV")
+        print("Generating docs/index.html ...")
+        html = generate_html(all_rows, today)
+        HTML_PATH.write_text(html, encoding="utf-8")
+        print(f"HTML written ({len(html):,} bytes)")
+        return
 
     # Build school map
     c.build_school_map(str(DATA_DIR / "school_map.csv"))
@@ -1095,5 +1197,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--recent", action="store_true")
     parser.add_argument("--test", nargs="+", metavar="SEASON")
+    parser.add_argument("--html-only", action="store_true")
     args = parser.parse_args()
-    run(recent_only=args.recent, test_seasons=args.test)
+    run(recent_only=args.recent, test_seasons=args.test, html_only=args.html_only)
