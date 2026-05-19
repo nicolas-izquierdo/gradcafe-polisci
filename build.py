@@ -318,11 +318,35 @@ select, input[type="text"] {{
   border-radius: 3px; outline: none;
 }}
 select:focus, input:focus {{ border-color: #aaa; }}
+.search-wrap {{ position: relative; display: inline-flex; align-items: center; }}
+.search-clear {{
+  position: absolute; right: 5px; border: none; background: none;
+  color: #ccc; cursor: pointer; font-size: 15px; line-height: 1;
+  padding: 0; display: none;
+}}
+.search-clear:hover {{ color: #555; }}
+.search-clear.visible {{ display: block; }}
 .cb-group {{ display: flex; flex-wrap: wrap; gap: 5px; max-width: 480px; }}
 .cb-group label {{
   display: flex; align-items: center; gap: 3px;
   font-size: 12px; cursor: pointer; white-space: nowrap;
 }}
+/* Year pills */
+.year-bar {{ display: flex; flex-wrap: wrap; gap: 4px; align-items: center; max-width: 600px; }}
+.yr-shortcut {{
+  font-size: 10px; padding: 2px 7px; border: 1px solid #ccc;
+  border-radius: 10px; cursor: pointer; background: #fff; color: #555;
+  font-family: inherit; white-space: nowrap;
+}}
+.yr-shortcut:hover {{ border-color: #888; color: #1a1a1a; }}
+.yr-shortcut.active {{ background: #1a1a1a; color: #fff; border-color: #1a1a1a; }}
+.yr-pill {{
+  font-size: 11px; padding: 2px 6px; border: 1px solid #ddd;
+  border-radius: 10px; cursor: pointer; background: #fff; color: #888;
+  font-family: inherit; white-space: nowrap; transition: all .1s;
+}}
+.yr-pill:hover {{ border-color: #999; color: #333; }}
+.yr-pill.active {{ background: #1a1a1a; color: #fff; border-color: #1a1a1a; }}
 .reset-btn {{
   font-size: 11px; color: #bbb; text-decoration: underline;
   cursor: pointer; align-self: flex-end; padding-bottom: 4px;
@@ -357,11 +381,9 @@ select:focus, input:focus {{ border-color: #aaa; }}
 @media (max-width: 700px) {{ .chart-pair {{ grid-template-columns: 1fr; }} }}
 .chart-note {{ font-size: 10px; color: #bbb; margin: 4px 0 0; font-style: italic; }}
 
-#timeline-chart {{ width: 100%; height: 400px; }}
-#volume-chart {{ width: 100%; height: 180px; }}
+#timeline-chart {{ width: 100%; height: 520px; }}
 #gpa-chart {{ width: 100%; height: 300px; }}
 #grev-chart {{ width: 100%; height: 300px; }}
-#school-chart {{ width: 100%; height: 560px; }}
 #year-chart {{ width: 100%; height: 240px; }}
 
 /* ── Table ── */
@@ -421,10 +443,13 @@ footer {{
     <div class="filter-inner">
       <div class="filter-group">
         <span class="glabel">School</span>
-        <input type="text" id="school-search" placeholder="Search school&hellip;" style="width:190px" autocomplete="off">
+        <div class="search-wrap">
+          <input type="text" id="school-search" placeholder="Type school name&hellip;" style="width:200px;padding-right:22px" autocomplete="off">
+          <button class="search-clear" id="search-clear" title="Clear">&times;</button>
+        </div>
       </div>
       <div class="filter-group">
-        <span class="glabel">Decision</span>
+        <span class="glabel">Outcome</span>
         <div class="cb-group" id="dec-checkboxes">
           <label><input type="checkbox" value="0" checked> Accepted</label>
           <label><input type="checkbox" value="1" checked> Rejected</label>
@@ -434,10 +459,15 @@ footer {{
         </div>
       </div>
       <div class="filter-group">
-        <span class="glabel">Cycle Year (Fall)</span>
-        <div class="cb-group" id="year-checkboxes"></div>
+        <span class="glabel">Cycle Year</span>
+        <div class="year-bar">
+          <button class="yr-shortcut active" id="yr-all">All years</button>
+          <button class="yr-shortcut" id="yr-recent">2020 &ndash; 2026</button>
+          <span style="color:#ddd;font-size:11px;align-self:center">|</span>
+          <div id="year-pills"></div>
+        </div>
       </div>
-      <button class="reset-btn" id="reset-btn">Reset</button>
+      <button class="reset-btn" id="reset-btn">Reset all</button>
     </div>
   </div>
 </div>
@@ -476,12 +506,8 @@ footer {{
 
 <div class="section">
   <p class="section-title">Decision Timeline &mdash; all cycles overlaid (Nov&ndash;May)</p>
+  <p class="chart-note" style="margin:0 0 6px">Each dot is one reported decision. Same-day notifications stack by outcome. Hover for details.</p>
   <div id="timeline-chart"></div>
-</div>
-
-<div class="section">
-  <p class="section-title">Weekly Decision Volume</p>
-  <div id="volume-chart"></div>
 </div>
 
 <div class="section">
@@ -496,12 +522,6 @@ footer {{
       <p class="chart-note" id="grev-note"></p>
     </div>
   </div>
-</div>
-
-<div class="section">
-  <p class="section-title">Top Programs by Reports &mdash; sorted by acceptance rate</p>
-  <div id="school-chart"></div>
-  <p class="chart-note">Only programs with &ge;10 reports shown. Acceptance rate reflects GradCafe reports, not true admission rate.</p>
 </div>
 
 <div class="section">
@@ -566,26 +586,19 @@ let page = 1;
 const PG = 25;
 const CFG = {{responsive:true,displaylogo:false,modeBarButtonsToRemove:['toImage','select2d','lasso2d','sendDataToCloud']}};
 
-// ── Build year checkboxes ────────────────────────────────────────────────
+// ── Build year pills ─────────────────────────────────────────────────────
 (function() {{
-  const el = document.getElementById('year-checkboxes');
+  const container = document.getElementById('year-pills');
   FALL_YEARS.forEach(y => {{
-    const lbl = document.createElement('label');
-    const cb = document.createElement('input');
-    cb.type='checkbox'; cb.value=y; cb.checked=true;
-    lbl.append(cb, ' '+y);
-    el.append(lbl);
+    const btn = document.createElement('button');
+    btn.className = 'yr-pill active';
+    btn.textContent = y;
+    btn.dataset.year = y;
+    container.append(btn);
   }});
 }})();
 
 // ── Utility ──────────────────────────────────────────────────────────────
-function seededJitter(seed) {{
-  let h = seed | 0;
-  h = Math.imul(h ^ (h >>> 16), 0x45d9f3b);
-  h = Math.imul(h ^ (h >>> 16), 0x45d9f3b);
-  return ((h >>> 0) / 0x100000000) * 2 - 1;
-}}
-
 function fmt(v) {{
   return (v===null||v===undefined||v==='') ? '<span style="color:#ddd">—</span>' : v;
 }}
@@ -632,29 +645,65 @@ function applyFilters() {{
 }}
 
 // ── Wire filters ─────────────────────────────────────────────────────────
+function syncShortcutBtns() {{
+  const allActive = FALL_YEARS.every(y => activeYears.has(y));
+  const recentYrs = FALL_YEARS.filter(y => y >= 2020);
+  const recentActive = recentYrs.length > 0 && recentYrs.every(y => activeYears.has(y))
+                       && FALL_YEARS.filter(y => y < 2020).every(y => !activeYears.has(y));
+  document.getElementById('yr-all').classList.toggle('active', allActive);
+  document.getElementById('yr-recent').classList.toggle('active', recentActive);
+}}
+
 let debounceTimer;
 document.getElementById('school-search').addEventListener('input', e => {{
   schoolFilter = e.target.value;
+  document.getElementById('search-clear').classList.toggle('visible', schoolFilter.length > 0);
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(applyFilters, 280);
+}});
+document.getElementById('search-clear').addEventListener('click', () => {{
+  document.getElementById('school-search').value = '';
+  schoolFilter = '';
+  document.getElementById('search-clear').classList.remove('visible');
+  applyFilters();
 }});
 document.getElementById('dec-checkboxes').addEventListener('change', e => {{
   activeDecs.clear();
   document.querySelectorAll('#dec-checkboxes input:checked').forEach(cb => activeDecs.add(+cb.value));
   applyFilters();
 }});
-document.getElementById('year-checkboxes').addEventListener('change', () => {{
-  activeYears.clear();
-  document.querySelectorAll('#year-checkboxes input:checked').forEach(cb => activeYears.add(+cb.value));
+document.getElementById('year-pills').addEventListener('click', e => {{
+  const pill = e.target.closest('.yr-pill');
+  if (!pill) return;
+  const y = +pill.dataset.year;
+  if (activeYears.has(y)) {{ activeYears.delete(y); pill.classList.remove('active'); }}
+  else {{ activeYears.add(y); pill.classList.add('active'); }}
+  syncShortcutBtns();
+  applyFilters();
+}});
+document.getElementById('yr-all').addEventListener('click', () => {{
+  activeYears = new Set(FALL_YEARS);
+  document.querySelectorAll('.yr-pill').forEach(p => p.classList.add('active'));
+  syncShortcutBtns();
+  applyFilters();
+}});
+document.getElementById('yr-recent').addEventListener('click', () => {{
+  activeYears = new Set(FALL_YEARS.filter(y => y >= 2020));
+  document.querySelectorAll('.yr-pill').forEach(p => {{
+    p.classList.toggle('active', +p.dataset.year >= 2020);
+  }});
+  syncShortcutBtns();
   applyFilters();
 }});
 document.getElementById('reset-btn').addEventListener('click', () => {{
   document.getElementById('school-search').value = '';
+  document.getElementById('search-clear').classList.remove('visible');
   schoolFilter = '';
   document.querySelectorAll('#dec-checkboxes input').forEach(cb => cb.checked=true);
-  document.querySelectorAll('#year-checkboxes input').forEach(cb => cb.checked=true);
-  activeDecs = new Set([0,1,2,3,4]);
   activeYears = new Set(FALL_YEARS);
+  document.querySelectorAll('.yr-pill').forEach(p => p.classList.add('active'));
+  activeDecs = new Set([0,1,2,3,4]);
+  syncShortcutBtns();
   applyFilters();
 }});
 
@@ -728,62 +777,52 @@ function renderSpotlight() {{
   }}
 }}
 
-// ── Timeline ──────────────────────────────────────────────────────────────
+// ── Timeline (stacked dots) ───────────────────────────────────────────────
 function renderTimeline() {{
+  // Group records by cycle_day, assign stack position sorted by decision type
+  // so colours always stack in the same order (Accepted at base, Other at top)
+  const dayGroups = {{}};
+  F.forEach((r, ri) => {{
+    if (r[4] === null) return;
+    if (!dayGroups[r[4]]) dayGroups[r[4]] = [];
+    dayGroups[r[4]].push(ri);
+  }});
+
+  const stackY = new Array(F.length).fill(null);
+  let maxStack = 0;
+  Object.values(dayGroups).forEach(indices => {{
+    // Sort within each day: Accepted(0) at bottom, Other(4) at top
+    indices.sort((a, b) => F[a][3] - F[b][3]);
+    indices.forEach((ri, pos) => {{ stackY[ri] = pos; }});
+    if (indices.length > maxStack) maxStack = indices.length;
+  }});
+
   const traces = [0,1,2,3,4].map(d => {{
     const x=[], y=[], text=[];
-    F.forEach(r => {{
-      if (r[3]!==d || r[4]===null) return;
+    F.forEach((r, ri) => {{
+      if (r[3] !== d || r[4] === null || stackY[ri] === null) return;
       x.push(r[4]);
-      y.push(seededJitter(r[0]*7+d));
+      y.push(stackY[ri]);
       text.push(tooltip(r));
     }});
     return {{
       type:'scattergl', mode:'markers', name:DEC_NAMES[d],
       x, y, text, hovertemplate:'%{{text}}<extra></extra>',
-      marker:{{color:DEC_COLORS[d], size:5, opacity:0.5}},
-      visible: x.length>0 ? true : 'legendonly',
+      marker:{{color:DEC_COLORS[d], size:4, opacity:0.75}},
+      visible: x.length > 0 ? true : 'legendonly',
     }};
   }});
+
   const tickvals=[0,30,61,92,120,151,181];
   const ticktext=['Nov','Dec','Jan','Feb','Mar','Apr','May'];
   Plotly.react('timeline-chart', traces, {{
     paper_bgcolor:'#fff', plot_bgcolor:'#fff',
-    margin:{{l:16,r:16,t:8,b:40}},
-    xaxis:{{tickvals,ticktext,tickfont:{{size:11,color:'#bbb'}},
+    margin:{{l:8,r:16,t:6,b:40}},
+    xaxis:{{tickvals,ticktext,tickfont:{{size:11,color:'#aaa'}},
             gridcolor:'#eee',gridwidth:1,zeroline:false,showline:false}},
-    yaxis:{{visible:false,range:[-1.6,1.6],zeroline:false}},
-    legend:{{orientation:'h',x:0,y:-0.14,font:{{size:11}}}},
+    yaxis:{{visible:false, range:[-2, maxStack+4], zeroline:false}},
+    legend:{{orientation:'h',x:0,y:-0.12,font:{{size:11}}}},
     hovermode:'closest',
-  }}, CFG);
-}}
-
-// ── Volume chart ──────────────────────────────────────────────────────────
-function renderVolume() {{
-  const wc = {{}};
-  F.forEach(r => {{
-    if (r[4]===null) return;
-    const w = Math.floor(r[4]/7);
-    if (!wc[w]) wc[w]={{}};
-    wc[w][r[3]] = (wc[w][r[3]]||0)+1;
-  }});
-  const weeks = Object.keys(wc).map(Number).sort((a,b)=>a-b);
-  const tickvals=[0,30,61,92,120,151,181];
-  const ticktext=['Nov','Dec','Jan','Feb','Mar','Apr','May'];
-  const traces = [0,1,2,3,4].map(d => ({{
-    type:'bar', name:DEC_NAMES[d],
-    x: weeks.map(w=>w*7),
-    y: weeks.map(w=>(wc[w][d]||0)),
-    marker:{{color:DEC_COLORS[d],opacity:0.75}},
-    showlegend:false,
-  }}));
-  Plotly.react('volume-chart', traces, {{
-    barmode:'stack',
-    paper_bgcolor:'#fff', plot_bgcolor:'#fff',
-    margin:{{l:38,r:16,t:6,b:36}},
-    xaxis:{{tickvals,ticktext,tickfont:{{size:11,color:'#bbb'}},showgrid:false,zeroline:false}},
-    yaxis:{{tickfont:{{size:10,color:'#bbb'}},gridcolor:'#eee',zeroline:false}},
-    hovermode:'x unified',
   }}, CFG);
 }}
 
@@ -835,59 +874,6 @@ function renderScores() {{
   Plotly.react('grev-chart', grevTraces.length ? grevTraces : [{{type:'box',y:[],name:''}}],
     {{...baseLayout, title:{{text:'GRE Verbal',font:{{size:12,color:'#999'}},x:0.04,xanchor:'left'}},
       yaxis:{{...baseLayout.yaxis, range:[140,172]}}}}, CFG);
-}}
-
-// ── School breakdown chart ────────────────────────────────────────────────
-function renderSchoolChart() {{
-  // Aggregate from SCHOOL_STATS filtered to activeYears and activeDecs
-  // For simplicity: use SCHOOL_STATS overall (unaffected by year/dec filters)
-  // but respect the school name filter for highlighting
-  const entries = Object.entries(SCHOOL_STATS)
-    .filter(([_,ss]) => ss.total >= 10)
-    .sort((a,b) => {{
-      const ra = a[1].by_dec[0]/Math.max(a[1].total,1);
-      const rb = b[1].by_dec[0]/Math.max(b[1].total,1);
-      return ra - rb; // ascending: most selective at bottom
-    }})
-    .slice(-35); // top 35 by acceptance rate (most accessible)
-
-  const names = entries.map(([n,_]) => n);
-  const colors2 = [COLORS.Accepted, COLORS.Waitlisted, COLORS.Interview, COLORS.Rejected, COLORS.Other];
-  const decLabels = ['Accepted','Waitlisted','Interview','Rejected','Other'];
-  const decIdxMap = [0,2,3,1,4];
-
-  const traces = decIdxMap.map((di,i) => ({{
-    type:'bar', orientation:'h', name:decLabels[i],
-    y: names,
-    x: entries.map(([_,ss]) => ss.by_dec[di]),
-    marker:{{color:colors2[i], opacity:0.82}},
-    hovertemplate:'%{{y}}<br>'+decLabels[i]+': %{{x}}<extra></extra>',
-  }}));
-
-  // Add acceptance rate annotations
-  const annotations = entries.map(([n,ss]) => {{
-    const pct = ss.total ? (100*ss.by_dec[0]/ss.total).toFixed(0) : 0;
-    return {{
-      x: ss.total + ss.total*0.02,
-      y: n,
-      text: pct+'%',
-      showarrow: false,
-      font:{{size:9, color:'#999'}},
-      xanchor:'left',
-    }};
-  }});
-
-  const sq = schoolFilter.toLowerCase().trim();
-  Plotly.react('school-chart', traces, {{
-    barmode:'stack',
-    paper_bgcolor:'#fff', plot_bgcolor:'#fff',
-    margin:{{l:200,r:60,t:8,b:40}},
-    xaxis:{{tickfont:{{size:10,color:'#bbb'}},gridcolor:'#eee',zeroline:false,title:{{text:'Reports',font:{{size:11,color:'#bbb'}}}}}},
-    yaxis:{{tickfont:{{size:10,color:'#555'}},gridcolor:'#eee',zeroline:false,automargin:true}},
-    legend:{{orientation:'h',x:0,y:-0.08,font:{{size:11}}}},
-    annotations,
-    hovermode:'y unified',
-  }}, CFG);
 }}
 
 // ── Year trends ───────────────────────────────────────────────────────────
@@ -1016,9 +1002,7 @@ function renderAll() {{
   updateStats();
   renderSpotlight();
   renderTimeline();
-  renderVolume();
   renderScores();
-  renderSchoolChart();
   renderYearTrends();
   renderTable();
 }}
