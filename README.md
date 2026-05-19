@@ -16,7 +16,7 @@
 
 ---
 
-## Functions
+## Information on...
 
 - 🕰️ **Decision timing**
 - 🏛️ **Program frequency**
