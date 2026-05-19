@@ -1,7 +1,7 @@
 <h1 align="center">Political Science PhD Admissions via GradCafe</h1>
 
 <p align="center">
-  <strong>A searchable, historical dataset of self-reported Political Science PhD admissions outcomes</strong><br>
+  <strong> Self-reported Political Science PhD admissions outcomes</strong><br>
   GradCafe posts · 2006–2026
 </p>
 
