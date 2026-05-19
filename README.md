@@ -37,21 +37,15 @@
 
 ## About the project
 
-This project collects and organizes **self-reported admissions posts** for Political Science PhD programs. The goal is not to estimate “true” admissions probabilities, but to make scattered historical information easier to search, compare, and interpret.
+> [!WARNING]
+> The data is self-reported by applicants. It is incomplete, noisy, selective, and not representative of the full applicant pool.
+
+This means the dataset should **not** be used to infer real acceptance rates, program selectivity, or individual admissions chances. It is best understood as a descriptive archive of reported outcomes.
 
 The data comes from:
 
 - [The GradCafe](https://www.thegradcafe.com)
 - the public dataset released by [deedy/gradcafe_data](https://github.com/deedy/gradcafe_data)
-
----
-
-## Important caveat
-
-> [!WARNING]
-> The data is self-reported by applicants. It is incomplete, noisy, selective, and not representative of the full applicant pool.
-
-This means the dataset should **not** be used to infer real acceptance rates, program selectivity, or individual admissions chances. It is best understood as a descriptive archive of reported outcomes.
 
 ---
 
