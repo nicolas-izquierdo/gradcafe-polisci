@@ -25,7 +25,7 @@ This project collects and organizes admissions posts from [The GradCafe](https:/
 
 ## Important caveat
 
-The data is **self-reported by applicants** and is therefore incomplete, noisy, and not representative of the full applicant pool. It should be used as a descriptive reference, not as a measure of program selectivity or admissions probability.
+The data is **self-reported by applicants** and is therefore incomplete, noisy, and not representative of the full applicant pool. 
 
 ---
 
