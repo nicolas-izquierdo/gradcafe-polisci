@@ -22,7 +22,7 @@
 - 🕰️ **Decision timing** (e.g., when are admissions more frequent for a given program?)
 - 📈 **Admissions cycles over time**
 - 🎓 **Applicant profiles:** GPA, GRE, international status, etc.
-- 🏛️ **Distribution of application outcomes** (very noisy and inaccurate!)
+- 🏛️ **Distribution of application outcomes** (although noisy and inaccurate!)
 
 <br>
 
