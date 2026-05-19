@@ -16,7 +16,7 @@
 
 ---
 
-## What you can explore
+## Functions
 
 <table>
   <tr>
