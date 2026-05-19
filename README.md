@@ -12,6 +12,7 @@
   <img src="https://img.shields.io/badge/Years-2006--2026-1f6feb?style=for-the-badge" alt="Years covered">
   <img src="https://img.shields.io/badge/Field-Political%20Science-8b5cf6?style=for-the-badge" alt="Field">
   <img src="https://img.shields.io/badge/License-MIT-f97316?style=for-the-badge" alt="MIT License">
+  <img src="https://img.shields.io/badge/AI--assisted-Claude-d97757?style=for-the-badge" alt="AI-assisted with Claude">
 </p>
 
 ---
