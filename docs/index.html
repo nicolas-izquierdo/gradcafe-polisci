@@ -226,7 +226,8 @@ footer {
         <span class="glabel">Cycle Year</span>
         <div class="year-bar">
           <button class="yr-shortcut active" id="yr-all">All years</button>
-          <button class="yr-shortcut" id="yr-recent">2020 &ndash; 2026</button>
+          <button class="yr-shortcut" id="yr-last10">Last 10 years</button>
+          <button class="yr-shortcut" id="yr-last5">Last 5 years</button>
           <span style="color:#ddd;font-size:11px;align-self:center">|</span>
           <div id="year-pills"></div>
         </div>
@@ -438,12 +439,19 @@ function applyFilters() {
 
 // ── Wire filters ─────────────────────────────────────────────────────────
 function syncShortcutBtns() {
+  const maxY = FALL_YEARS.length ? Math.max(...FALL_YEARS) : 2026;
   const allActive = FALL_YEARS.every(y => activeYears.has(y));
-  const recentYrs = FALL_YEARS.filter(y => y >= 2020);
-  const recentActive = recentYrs.length > 0 && recentYrs.every(y => activeYears.has(y))
-                       && FALL_YEARS.filter(y => y < 2020).every(y => !activeYears.has(y));
+  const last10Yrs = FALL_YEARS.filter(y => y >= maxY - 9);
+  const last5Yrs  = FALL_YEARS.filter(y => y >= maxY - 4);
+  const last10Active = last10Yrs.length > 0
+    && last10Yrs.every(y => activeYears.has(y))
+    && FALL_YEARS.filter(y => y < maxY - 9).every(y => !activeYears.has(y));
+  const last5Active = last5Yrs.length > 0
+    && last5Yrs.every(y => activeYears.has(y))
+    && FALL_YEARS.filter(y => y < maxY - 4).every(y => !activeYears.has(y));
   document.getElementById('yr-all').classList.toggle('active', allActive);
-  document.getElementById('yr-recent').classList.toggle('active', recentActive);
+  document.getElementById('yr-last10').classList.toggle('active', last10Active);
+  document.getElementById('yr-last5').classList.toggle('active', last5Active);
 }
 
 let debounceTimer;
@@ -502,10 +510,20 @@ document.getElementById('yr-all').addEventListener('click', () => {
   syncShortcutBtns();
   applyFilters();
 });
-document.getElementById('yr-recent').addEventListener('click', () => {
-  activeYears = new Set(FALL_YEARS.filter(y => y >= 2020));
+document.getElementById('yr-last10').addEventListener('click', () => {
+  const maxY = FALL_YEARS.length ? Math.max(...FALL_YEARS) : 2026;
+  activeYears = new Set(FALL_YEARS.filter(y => y >= maxY - 9));
   document.querySelectorAll('.yr-pill').forEach(p => {
-    p.classList.toggle('active', +p.dataset.year >= 2020);
+    p.classList.toggle('active', +p.dataset.year >= maxY - 9);
+  });
+  syncShortcutBtns();
+  applyFilters();
+});
+document.getElementById('yr-last5').addEventListener('click', () => {
+  const maxY = FALL_YEARS.length ? Math.max(...FALL_YEARS) : 2026;
+  activeYears = new Set(FALL_YEARS.filter(y => y >= maxY - 4));
+  document.querySelectorAll('.yr-pill').forEach(p => {
+    p.classList.toggle('active', +p.dataset.year >= maxY - 4);
   });
   syncShortcutBtns();
   applyFilters();
@@ -602,8 +620,10 @@ function renderSpotlight() {
 
 // ── Timeline (stacked dots) ───────────────────────────────────────────────
 function renderTimeline() {
-  // Group records by cycle_day, assign stack position sorted by decision type
-  // so colours always stack in the same order (Accepted at base, Other at top)
+  const isSingle = exactSchool !== null;
+  const dotSize    = isSingle ? 10 : 4;
+  const dotOpacity = isSingle ? 1.0 : 0.75;
+
   const dayGroups = {};
   F.forEach((r, ri) => {
     if (r[4] === null) return;
@@ -614,12 +634,12 @@ function renderTimeline() {
   const stackY = new Array(F.length).fill(null);
   let maxStack = 0;
   Object.values(dayGroups).forEach(indices => {
-    // Sort within each day: Accepted(0) at bottom, Other(4) at top
     indices.sort((a, b) => F[a][3] - F[b][3]);
     indices.forEach((ri, pos) => { stackY[ri] = pos; });
     if (indices.length > maxStack) maxStack = indices.length;
   });
 
+  const traceType = isSingle ? 'scatter' : 'scattergl';
   const traces = [0,1,2,3,4].map(d => {
     const x=[], y=[], text=[];
     F.forEach((r, ri) => {
@@ -629,13 +649,14 @@ function renderTimeline() {
       text.push(tooltip(r));
     });
     return {
-      type:'scattergl', mode:'markers', name:DEC_NAMES[d],
+      type: traceType, mode:'markers', name:DEC_NAMES[d],
       x, y, text, hovertemplate:'%{text}<extra></extra>',
-      marker:{color:DEC_COLORS[d], size:4, opacity:0.75},
+      marker:{color:DEC_COLORS[d], size:dotSize, opacity:dotOpacity},
       visible: x.length > 0 ? true : 'legendonly',
     };
   });
 
+  const yPad = isSingle ? Math.max(2, Math.ceil(maxStack * 0.3)) : 4;
   const tickvals=[0,30,61,92,120,151,181];
   const ticktext=['Nov','Dec','Jan','Feb','Mar','Apr','May'];
   Plotly.react('timeline-chart', traces, {
@@ -643,7 +664,7 @@ function renderTimeline() {
     margin:{l:8,r:16,t:6,b:40},
     xaxis:{tickvals,ticktext,tickfont:{size:11,color:'#aaa'},
             gridcolor:'#eee',gridwidth:1,zeroline:false,showline:false},
-    yaxis:{visible:false, range:[-2, maxStack+4], zeroline:false},
+    yaxis:{visible:false, range:[-1, maxStack + yPad], zeroline:false},
     legend:{orientation:'h',x:0,y:-0.12,font:{size:11}},
     hovermode:'closest',
   }, CFG);
