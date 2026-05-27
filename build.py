@@ -352,7 +352,7 @@ header h1 {{
   border-bottom: 1px solid #e4e4e4;
   padding: 14px 0;
 }}
-.stat-card {{ padding: 6px 18px 6px 16px; }}
+.stat-card {{ padding: 6px 18px 6px 32px; }}
 .stat-num {{
   font-size: 26px; font-weight: 700; letter-spacing: -0.5px;
   font-variant-numeric: tabular-nums; color: #111;
@@ -363,7 +363,7 @@ header h1 {{
 }}
 @media (max-width: 640px) {{
   .stats-strip {{ grid-template-columns: repeat(2, 1fr); }}
-  .stat-card {{ padding: 8px 12px 8px 16px; }}
+  .stat-card {{ padding: 8px 12px 8px 32px; }}
 }}
 
 /* ── Filter bar ── */
