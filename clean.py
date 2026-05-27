@@ -2,6 +2,16 @@
 
 import re
 
+
+def _fix_title_case(s: str) -> str:
+    """Fix capitalised prepositions: 'University Of X' → 'University of X'."""
+    # Replace interior Of/At/In/And/De/Du/La/Le when surrounded by word chars
+    s = re.sub(r'(?<=\w) (Of|At|In|And|De|Du|La|Le) (?=\w)', lambda m: ' ' + m.group(1).lower() + ' ', s)
+    # Strip trailing parenthetical abbreviations like "(WashU)", "(CSU)", "(NIU)" …
+    # but NOT "(OH)" which disambiguates Miami University
+    s = re.sub(r'\s*\((?!OH\b)[A-Z]{2,6}\)$', '', s.strip())
+    return s.strip()
+
 # (pattern, canonical_name, usnwr_rank)
 SCHOOL_RULES = [
     # Rank 1
@@ -31,7 +41,7 @@ SCHOOL_RULES = [
     # Rank 13
     (r"rochester\b", "University of Rochester", 13),
     # Rank 14
-    (r"wash(ington)? univ(ersity)? st\.? louis|wustl", "Washington University in St. Louis", 14),
+    (r"wash(?:ington)?\s+univ(?:ersity)?(?:\s+in)?\s+st\.?\s*louis\b|wustl\b|\bwashu\b", "Washington University in St. Louis", 14),
     # Rank 15
     (r"nyu\b|new york univ", "New York University", 15),
     # Rank 16
@@ -136,7 +146,7 @@ SCHOOL_RULES = [
     (r"london school of economics|\blse\b", "London School of Economics", 69),
     (r"university of connecticut|\buconn\b", "University of Connecticut", 70),
     (r"university of georgia|\buga\b(?!.*state)", "University of Georgia", 71),
-    (r"texas a&m|tamu\b|texas a and m|texas aggie", "Texas A&M University", 72),
+    (r"texas\s+a\s*&\s*m\b|texas\s+a\s+and\s+m\b|tamu\b|texas\s+aggie\b|\btexas\s+a\b(?!\s*&|\s+and|\s+state|\s+tech)", "Texas A&M University", 72),
     (r"university of oregon\b|\buoregon\b|\boregon\b(?! state)", "University of Oregon", 73),
     (r"george mason\b|\bgmu\b", "George Mason University", 74),
     (r"temple univ\b", "Temple University", 75),
@@ -170,7 +180,7 @@ SCHOOL_RULES = [
     (r"loyola\b.*chicago", "Loyola University Chicago", 103),
     (r"drexel\b", "Drexel University", 104),
     (r"american univ.*beirut|\baub\b", "American University of Beirut", 105),
-    (r"queens univ\b|queen's univ", "Queen's University", 106),
+    (r"queens?\s+univ\b|queen.s\s+univ\b|queens?\s+university\b(?!\s+of\s+charlotte)|queens?\s*\(canada\)", "Queen's University", 106),
     (r"western univ\b|university of western ontario", "Western University", 107),
     (r"university of alberta\b", "University of Alberta", 108),
     (r"university of british columbia\b|\bubc\b", "University of British Columbia", 109),
@@ -187,7 +197,7 @@ SCHOOL_RULES = [
     (r"european university institute|\beui\b(?!.*beirut)", "European University Institute", None),
     (r"\bleiden\b", "Leiden University", None),
     (r"mannheim\b|gess\b.*mannheim", "University of Mannheim", None),
-    (r"graduate institute.*geneva|iheid\b|geneva.*graduate\s*institute", "Graduate Institute Geneva", None),
+    (r"graduate\s+institute(?:\s+of\s+international|\s+geneva\b|.*iheid)|iheid\b|geneva.*graduate\s*institute", "Graduate Institute Geneva", None),
     (r"\buvic\b|university of victoria\b", "University of Victoria", None),
     (r"national\s*university.*singapore|\bnus\b(?!.*amherst)", "National University of Singapore", None),
     (r"concordia\s*univ\b|university.*concordia\b", "Concordia University", None),
@@ -245,9 +255,51 @@ SCHOOL_RULES = [
     (r"\bthe\s+university\s+of\s+alabama\b|university\s+of\s+alabama\b(?!.*birmingham|.*huntsville)", "University of Alabama", None),
     (r"pardee\s*rand\b|rand\s*graduate", "Pardee RAND Graduate School", None),
     (r"old\s*dominion\s*univ\b", "Old Dominion University", None),
-    (r"colorado\s*state\b(?!\s*university)", "Colorado State University", None),
+    (r"colorado\s+state\b", "Colorado State University", None),
     (r"georgia\s*institute\s*of\s*technology\b|georgia\s*tech\b|\bgt\b.*polisci", "Georgia Tech", None),
     (r"university\s*of\s*colorado\s*boulder\b|university\s*of\s*colorada\b", "University of Colorado Boulder", 56),
+    # Nevada — specific before generic
+    (r"university\s+of\s+nevada\b.*(?:las\s*vegas)|\bunlv\b", "University of Nevada, Las Vegas", None),
+    (r"university\s+of\s+nevada\b.*reno\b|\bunr\b.*nevada", "University of Nevada, Reno", None),
+    (r"university\s+of\s+nevada\b", "University of Nevada", None),
+    # Hawaii
+    (r"university\s+of\s+hawaii\b|hawaii.*manoa\b|\buhm\b", "University of Hawaii at Manoa", None),
+    # Illinois generic → UIUC (must follow specific UIUC and UIC rules)
+    (r"university\s+of\s+illinois\b", "University of Illinois Urbana-Champaign", 30),
+    # Nebraska generic → UNL (must follow Nebraska-Lincoln rule)
+    (r"university\s+of\s+nebraska\b", "University of Nebraska-Lincoln", 92),
+    # Massachusetts generic → UMass Amherst (must follow UMass Amherst rule)
+    (r"university\s+of\s+massachusetts\b", "UMass Amherst", 65),
+    # Case-variant duplicates (no existing rule)
+    (r"university\s+of\s+cincinnati\b", "University of Cincinnati", None),
+    (r"university\s+of\s+denver\b", "University of Denver", None),
+    (r"university\s+of\s+mississippi\b", "University of Mississippi", None),
+    (r"university\s+of\s+waterloo\b", "University of Waterloo", None),
+    # Montreal
+    (r"universit[eé]\s+de\s+montr[eé]al\b|university\s+of\s+montreal\b", "Université de Montréal", None),
+    # North Texas (bare and with "(UNT)" parenthetical)
+    (r"\bnorth\s+texas\b", "University of North Texas", None),
+    # Guelph
+    (r"\bguelph\b", "University of Guelph", None),
+    # Caltech
+    (r"\bcaltech\b|california\s+institute\s+of\s+technology\b", "California Institute of Technology", None),
+    # New South Wales
+    (r"new\s+south\s+wales\b|\bunsw\b", "University of New South Wales", None),
+    # Abbreviation-parenthetical duplicates
+    (r"florida\s+international\s+university\b|\bfiu\b", "Florida International University", None),
+    (r"georgia\s+state\s+university\b|georgia\s+state\b", "Georgia State University", None),
+    (r"northern\s+illinois\s+university\b|northern\s+illinois\b", "Northern Illinois University", None),
+    (r"san\s+diego\s+state\b|\bsdsu\b", "San Diego State University", None),
+    (r"simon\s+fraser\b|\bsfu\b", "Simon Fraser University", None),
+    (r"university\s+of\s+central\s+florida\b|\bucf\b", "University of Central Florida", None),
+    # UT Dallas — must precede generic UT rule
+    (r"university\s+of\s+texas.*dallas\b|ut\s*dallas\b", "University of Texas at Dallas", None),
+    # Chicago Harris School → University of Chicago
+    (r"chicago\s+harris\b|harris\s+school.*public\s+policy", "University of Chicago", 11),
+    # Generic UT → UT Austin (catches bare "University of Texas")
+    (r"university\s+of\s+texas\b", "University of Texas at Austin", 28),
+    # Generic Washington University → WashU (catches bare "Washington University")
+    (r"\bwashington\s+university\b", "Washington University in St. Louis", 14),
 ]
 
 _COMPILED = [(re.compile(pat, re.IGNORECASE), name, rank) for pat, name, rank in SCHOOL_RULES]
@@ -261,7 +313,9 @@ def clean_school(raw: str) -> tuple[str, int | None]:
     for pattern, name, rank in _COMPILED:
         if pattern.search(s):
             return name, rank
-    return s, None
+    # For unmatched names, normalise interior preposition capitalisation and
+    # strip trailing abbreviation parentheticals, e.g. "University Of X (ABC)"
+    return _fix_title_case(s), None
 
 
 DECISION_MAP = {

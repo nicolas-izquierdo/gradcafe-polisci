@@ -28,11 +28,13 @@ ALL_SEASONS = [
 ]
 
 JUNK_SCHOOLS = {
-    "McDonalds", "London College of Piss (LCP)", "Donald Trump State University",
-    "Coomtown University", "Cuumtown Seminary", "HELP", "Wherever I Get In",
-    "Ravinder Singh", "NSF GRFP", "All", "Fulbright Canada", "Ch",
-    "Hot Piss University", "Social Sciences", "University Of Massholes", "Other",
+    "McDonalds", "London College of Piss (LCP)", "London College of Piss",
+    "Donald Trump State University", "Coomtown University", "Cuumtown Seminary",
+    "HELP", "Wherever I Get In", "Ravinder Singh", "NSF GRFP", "All",
+    "Fulbright Canada", "Ch", "Hot Piss University", "Social Sciences",
+    "University Of Massholes", "University of Massholes", "Other",
     "University of the Arts", "University Canada West", "Iqtisad Uni",
+    "IED", "University of Ca", "University of Sou", "Yobe state University",
 }
 
 _DECISION_COLORS = {
