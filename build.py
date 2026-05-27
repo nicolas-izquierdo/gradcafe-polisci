@@ -347,12 +347,17 @@ header h1 {{
 
 /* ── Stats strip ── */
 .stats-strip {{
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  display: flex;
+  justify-content: center;
   border-bottom: 1px solid #e4e4e4;
   padding: 14px 0;
 }}
-.stat-card {{ padding: 6px 18px 6px 32px; }}
+.stat-card {{
+  padding: 6px 40px;
+  text-align: center;
+  border-right: 1px solid #e4e4e4;
+}}
+.stat-card:last-child {{ border-right: none; }}
 .stat-num {{
   font-size: 26px; font-weight: 700; letter-spacing: -0.5px;
   font-variant-numeric: tabular-nums; color: #111;
@@ -362,8 +367,15 @@ header h1 {{
   margin-top: 2px;
 }}
 @media (max-width: 640px) {{
-  .stats-strip {{ grid-template-columns: repeat(2, 1fr); }}
-  .stat-card {{ padding: 8px 12px 8px 32px; }}
+  .stats-strip {{ flex-wrap: wrap; }}
+  .stat-card {{
+    padding: 8px 24px;
+    flex: 1 1 45%;
+    border-right: none;
+    border-bottom: 1px solid #e4e4e4;
+  }}
+  .stat-card:nth-child(odd) {{ border-right: 1px solid #e4e4e4; }}
+  .stat-card:nth-last-child(-n+2) {{ border-bottom: none; }}
 }}
 
 /* ── Filter bar ── */
