@@ -27,12 +27,20 @@ ALL_SEASONS = [
     "S25", "F25", "S26", "F26",
 ]
 
+JUNK_SCHOOLS = {
+    "McDonalds", "London College of Piss (LCP)", "Donald Trump State University",
+    "Coomtown University", "Cuumtown Seminary", "HELP", "Wherever I Get In",
+    "Ravinder Singh", "NSF GRFP", "All", "Fulbright Canada", "Ch",
+    "Hot Piss University", "Social Sciences", "University Of Massholes", "Other",
+    "University of the Arts", "University Canada West", "Iqtisad Uni",
+}
+
 _DECISION_COLORS = {
-    "Accepted":   "#2d6a2d",
-    "Rejected":   "#1a3a5c",
-    "Waitlisted": "#7a4f1a",
-    "Interview":  "#4a1a5c",
-    "Other":      "#555555",
+    "Accepted":   "#1e7a34",
+    "Rejected":   "#c0392b",
+    "Waitlisted": "#c47f17",
+    "Interview":  "#5b4a9a",
+    "Other":      "#7a7a7a",
 }
 
 _MONTH_OFFSETS = {11: 0, 12: 30, 1: 61, 2: 92, 3: 120, 4: 151, 5: 181}
@@ -137,15 +145,13 @@ def _compress_data(rows: list[dict]) -> tuple[str, str, str, str]:
     [school_idx, season_year, is_fall(0/1), dec_idx(0-4),
      cycle_day|null, gpa|null, gre_v|null, gre_q|null, status_idx(0-2), date_str]
     """
-    # Build school index
     schools = sorted(set(
         (r.get("school_clean") or r.get("school_raw", "")).strip()
         for r in rows
+        if (r.get("school_clean") or r.get("school_raw", "")).strip() not in JUNK_SCHOOLS
     ))
     school_to_idx = {s: i for i, s in enumerate(schools)}
 
-    # Accumulators for school stats
-    # school -> {total, by_dec[5], gpas_by_dec{0:[], ...}, grevs_by_dec{0:[], ...}, by_year{yr: [5]}}
     ss: dict[str, dict] = {}
     for s in schools:
         ss[s] = {
@@ -153,15 +159,17 @@ def _compress_data(rows: list[dict]) -> tuple[str, str, str, str]:
             "by_dec": [0, 0, 0, 0, 0],
             "gpas_by_dec": {i: [] for i in range(5)},
             "grevs_by_dec": {i: [] for i in range(5)},
+            "greqs_by_dec": {i: [] for i in range(5)},
             "by_year": {},
         }
 
-    # Accumulator for year stats: year_str -> [dec0..4, total]
     ys: dict[str, list] = {}
 
     data = []
     for r in rows:
         school = (r.get("school_clean") or r.get("school_raw", "")).strip()
+        if school in JUNK_SCHOOLS:
+            continue
         sidx = school_to_idx.get(school, 0)
         year = r.get("season_year") or 0
         is_fall = 1 if str(r.get("season_code", "")).startswith("F") else 0
@@ -173,7 +181,6 @@ def _compress_data(rows: list[dict]) -> tuple[str, str, str, str]:
         status = _STATUS_IDX.get((r.get("applicant_status") or "").strip(), 2)
         date_str = r.get("date_posted") or ""
 
-        # Round floats
         if gpa is not None:
             try:
                 gpa = round(float(gpa), 2)
@@ -192,28 +199,27 @@ def _compress_data(rows: list[dict]) -> tuple[str, str, str, str]:
 
         data.append([sidx, year, is_fall, didx, cd, gpa, gre_v, gre_q, status, date_str])
 
-        # Accumulate school stats
         if school in ss:
             entry = ss[school]
             entry["total"] += 1
             entry["by_dec"][didx] += 1
-            if gpa is not None:
+            if gpa is not None and 0 < gpa <= 4.5:
                 entry["gpas_by_dec"][didx].append(gpa)
-            if gre_v is not None:
+            if gre_v is not None and 130 <= gre_v <= 170:
                 entry["grevs_by_dec"][didx].append(gre_v)
+            if gre_q is not None and 130 <= gre_q <= 170:
+                entry["greqs_by_dec"][didx].append(gre_q)
             yk = str(year)
             if yk not in entry["by_year"]:
                 entry["by_year"][yk] = [0, 0, 0, 0, 0]
             entry["by_year"][yk][didx] += 1
 
-        # Accumulate year stats
         yk = str(year)
         if yk not in ys:
             ys[yk] = [0, 0, 0, 0, 0, 0]
         ys[yk][didx] += 1
         ys[yk][5] += 1
 
-    # Compact school stats (drop raw arrays, keep medians and summary data)
     school_stats_out = {}
     for s, entry in ss.items():
         if entry["total"] < 3:
@@ -223,6 +229,7 @@ def _compress_data(rows: list[dict]) -> tuple[str, str, str, str]:
             "by_dec": entry["by_dec"],
             "med_gpa_acc": _median(entry["gpas_by_dec"][0]),
             "med_grev_acc": _median(entry["grevs_by_dec"][0]),
+            "med_greq_acc": _median(entry["greqs_by_dec"][0]),
             "by_year": entry["by_year"],
         }
 
@@ -242,7 +249,6 @@ def generate_html(rows: list[dict], last_updated: str) -> str:
     n = len(rows)
     data_json, schools_json, school_stats_json, year_stats_json = _compress_data(rows)
 
-    # Fall cycle years for filter checkboxes
     fall_years = sorted(set(
         r["season_year"] for r in rows
         if r.get("season_year") and str(r.get("season_code", "")).startswith("F")
@@ -250,13 +256,23 @@ def generate_html(rows: list[dict], last_updated: str) -> str:
     fall_years_json = json.dumps(fall_years)
     colors_json = json.dumps(_DECISION_COLORS)
 
-    # Top-30 school indices (ranks 1–30 in clean.py SCHOOL_RULES)
-    top30_names = {name for _, name, rank in c.SCHOOL_RULES if rank and rank <= 30}
+    # Top-30 schools for optgroup
+    top30_names_set = {name for _, name, rank in c.SCHOOL_RULES if rank and rank <= 30}
     schools_list = json.loads(schools_json)
-    top30_idxs_json = json.dumps([i for i, s in enumerate(schools_list) if s in top30_names])
-    top30_count = sum(1 for s in schools_list if s in top30_names)
+    top30_pairs = sorted(
+        [(i, s) for i, s in enumerate(schools_list) if s in top30_names_set],
+        key=lambda x: x[1].lower()
+    )
+    all_pairs = sorted(enumerate(schools_list), key=lambda x: x[1].lower())
 
-    # Overall acceptance rate for display
+    top30_options_html = "\n            ".join(
+        f'<option value="{i}">{name}</option>' for i, name in top30_pairs
+    )
+    all_options_html = "\n            ".join(
+        f'<option value="{i}">{name}</option>' for i, name in all_pairs
+    )
+    top30_idxs_json = json.dumps([i for i, s in enumerate(schools_list) if s in top30_names_set])
+
     accepted = sum(1 for r in rows if r.get("decision_class") == "Accepted")
     pct_acc = f"{100*accepted/n:.1f}" if n else "0"
     unique_schools = len(set(
@@ -265,243 +281,338 @@ def generate_html(rows: list[dict], last_updated: str) -> str:
     ))
     year_range = "2006–2026"
 
+    c_acc = _DECISION_COLORS["Accepted"]
+    c_rej = _DECISION_COLORS["Rejected"]
+    c_wl  = _DECISION_COLORS["Waitlisted"]
+    c_int = _DECISION_COLORS["Interview"]
+    c_oth = _DECISION_COLORS["Other"]
+
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Interactive browser for {n:,} self-reported Political Science PhD admissions outcomes from GradCafe, 2006–2026.">
 <title>Political Science PhD Admissions — GradCafe Data</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" crossorigin="anonymous"></script>
 <style>
-*, *::before, *::after {{ box-sizing: border-box; }}
-body {{
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  background: #ffffff;
-  color: #1a1a1a;
-  margin: 0; padding: 0;
-  font-size: 18px;
-  line-height: 1.6;
+/* ── Reset ── */
+*, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
+
+/* ── Skip link (accessibility) ── */
+.skip-link {{
+  position: absolute; top: -56px; left: 0; right: 0;
+  background: #0052cc; color: #fff; padding: 14px 24px;
+  text-align: center; text-decoration: none; font-size: 15px; font-weight: 600;
+  z-index: 2000; transition: top 0.2s ease;
 }}
-a {{ color: #1a1a1a; }}
-.container {{ max-width: 1340px; margin: 0 auto; padding: 0 36px; }}
+.skip-link:focus {{ top: 0; }}
+
+/* ── Global focus ring ── */
+:focus-visible {{
+  outline: 3px solid #0052cc;
+  outline-offset: 2px;
+  border-radius: 3px;
+}}
+
+/* ── Base ── */
+body {{
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif;
+  background: #fff;
+  color: #111;
+  font-size: 16px;
+  line-height: 1.5;
+}}
+a {{ color: #0052cc; text-decoration: none; }}
+a:hover {{ text-decoration: underline; }}
+.container {{ max-width: 1320px; margin: 0 auto; padding: 0 32px; }}
+@media (max-width: 640px) {{ .container {{ padding: 0 16px; }} }}
 
 /* ── Header ── */
-header {{ padding: 32px 0 20px; border-bottom: 1px solid #c0c0c0; }}
-header h1 {{ font-size: 28px; font-weight: 700; margin: 0; letter-spacing: -.5px; font-family: Georgia, 'Times New Roman', serif; }}
+header {{
+  padding: 26px 0 18px;
+  border-bottom: 1px solid #e4e4e4;
+}}
+header h1 {{
+  font-size: 24px; font-weight: 700;
+  font-family: Georgia, 'Times New Roman', serif;
+  letter-spacing: -0.4px; color: #111;
+  margin-bottom: 4px;
+}}
+.header-sub {{
+  font-size: 13px; color: #666;
+}}
 
 /* ── Stats strip ── */
 .stats-strip {{
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 0;
-  border-bottom: 1px solid #c0c0c0;
+  border-bottom: 1px solid #e4e4e4;
   padding: 14px 0;
 }}
-.stat-card {{ padding: 6px 0; }}
-.stat-num {{ font-size: 25px; font-weight: 600; letter-spacing: -.5px; }}
-.stat-label {{ font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: #555; margin-top: 2px; }}
+.stat-card {{ padding: 6px 18px 6px 0; }}
+.stat-num {{
+  font-size: 26px; font-weight: 700; letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums; color: #111;
+}}
+.stat-label {{
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #888;
+  margin-top: 2px;
+}}
+@media (max-width: 640px) {{
+  .stats-strip {{ grid-template-columns: repeat(2, 1fr); }}
+  .stat-card {{ padding: 8px 12px 8px 0; }}
+}}
 
 /* ── Filter bar ── */
 .filter-bar {{
-  position: sticky; top: 0;
-  background: #ffffff;
-  border-bottom: 1px solid #c0c0c0;
-  z-index: 100; padding: 10px 0;
+  position: sticky; top: 0; z-index: 200;
+  background: #fff;
+  border-bottom: 1px solid #e4e4e4;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  padding: 10px 0;
 }}
 .filter-inner {{
-  display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start;
+  display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start;
 }}
-.filter-group {{ display: flex; flex-direction: column; gap: 4px; }}
-.filter-group .glabel {{
-  font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: #666;
+.filter-group {{ display: flex; flex-direction: column; gap: 3px; }}
+.glabel {{
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.1em; color: #888;
 }}
-select, input[type="text"] {{
-  border: 1px solid #c0c0c0; background: #fff; color: #1a1a1a;
-  padding: 5px 10px; font-size: 16px; font-family: inherit;
-  border-radius: 4px; outline: none;
-}}
-select:focus, input:focus {{ border-color: #777; }}
-.search-wrap {{ position: relative; display: inline-flex; align-items: center; }}
-.search-clear {{
-  position: absolute; right: 6px; border: none; background: none;
-  color: #999; cursor: pointer; font-size: 19px; line-height: 1;
-  padding: 0; display: none;
-}}
-.search-clear:hover {{ color: #1a1a1a; }}
-.search-clear.visible {{ display: block; }}
-.cb-group {{ display: flex; flex-wrap: wrap; gap: 6px; max-width: 540px; }}
-.cb-group label {{
-  display: flex; align-items: center; gap: 4px;
-  font-size: 15px; cursor: pointer; white-space: nowrap;
-}}
-/* Year pills */
-.year-bar {{ display: flex; flex-wrap: wrap; gap: 5px; align-items: center; max-width: 760px; }}
-.yr-shortcut {{
-  font-size: 13px; padding: 3px 9px; border: 1px solid #999;
-  border-radius: 12px; cursor: pointer; background: #fff; color: #444;
-  font-family: inherit; white-space: nowrap;
-}}
-.yr-shortcut:hover {{ border-color: #444; color: #1a1a1a; }}
-.yr-shortcut.active {{ background: #1a1a1a; color: #fff; border-color: #1a1a1a; }}
-.yr-pill {{
-  font-size: 14px; padding: 2px 8px; border: 1px solid #bbb;
-  border-radius: 12px; cursor: pointer; background: #fff; color: #555;
-  font-family: inherit; white-space: nowrap; transition: all .1s;
-}}
-.yr-pill:hover {{ border-color: #555; color: #1a1a1a; }}
-.yr-pill.active {{ background: #1a1a1a; color: #fff; border-color: #1a1a1a; }}
-.reset-btn {{
-  font-size: 14px; color: #666; text-decoration: underline;
-  cursor: pointer; align-self: flex-end; padding-bottom: 4px;
-  border: none; background: none; font-family: inherit;
-}}
-.reset-btn:hover {{ color: #1a1a1a; }}
 
-/* ── Scope toggle ── */
-.scope-toggle {{ display: flex; }}
-.scope-btn {{
-  font-size: 14px; padding: 4px 12px; border: 1px solid #bbb;
-  background: #fff; color: #555; cursor: pointer; font-family: inherit;
-  transition: all .1s; line-height: 1.4;
+/* ── Controls ── */
+select, input[type="text"] {{
+  border: 1.5px solid #ccc; background: #fff; color: #111;
+  padding: 6px 10px; font-size: 14px; font-family: inherit;
+  border-radius: 5px; transition: border-color 0.15s;
 }}
-.scope-btn:first-child {{ border-radius: 4px 0 0 4px; }}
-.scope-btn:last-child {{ border-radius: 0 4px 4px 0; border-left: none; }}
-.scope-btn.active {{ background: #1a1a1a; color: #fff; border-color: #1a1a1a; }}
-.scope-btn:not(.active):hover {{ background: #ebebeb; color: #1a1a1a; }}
-select#school-select {{ width: 220px; }}
+select:hover, input[type="text"]:hover {{ border-color: #888; }}
+select:focus, input[type="text"]:focus {{ border-color: #0052cc; outline: none; box-shadow: 0 0 0 3px rgba(0,82,204,0.15); }}
+select#school-select {{ width: 250px; max-width: 100%; }}
+
+/* ── Outcome toggles ── */
+.cb-group {{ display: flex; flex-wrap: wrap; gap: 5px; }}
+.cb-label {{
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 13px; cursor: pointer; white-space: nowrap;
+  padding: 4px 10px; border: 1.5px solid #ddd; border-radius: 20px;
+  user-select: none; transition: border-color 0.12s, background 0.12s;
+  background: #fff; color: #555;
+}}
+.cb-label:hover {{ border-color: #999; color: #111; }}
+.cb-label input[type="checkbox"] {{
+  width: 0; height: 0; opacity: 0; position: absolute;
+}}
+.cb-label input[type="checkbox"]:focus-visible + .cb-swatch {{
+  outline: 3px solid #0052cc; outline-offset: 3px;
+}}
+.cb-swatch {{
+  width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+}}
+.cb-label.checked {{
+  border-color: #555; background: #f5f5f5; color: #111; font-weight: 500;
+}}
+
+/* ── Year pills ── */
+.year-bar {{ display: flex; flex-wrap: wrap; gap: 4px; align-items: center; max-width: 720px; }}
+.yr-shortcut {{
+  font-size: 12px; padding: 4px 10px; border: 1.5px solid #ccc;
+  border-radius: 20px; cursor: pointer; background: #fff; color: #666;
+  font-family: inherit; white-space: nowrap; transition: all 0.12s; font-weight: 500;
+}}
+.yr-shortcut:hover {{ border-color: #666; color: #111; }}
+.yr-shortcut.active {{ background: #111; color: #fff; border-color: #111; }}
+[aria-pressed="true"].yr-shortcut {{ background: #111; color: #fff; border-color: #111; }}
+.yr-pill {{
+  font-size: 12px; padding: 3px 7px; border: 1.5px solid #e0e0e0;
+  border-radius: 20px; cursor: pointer; background: #fff; color: #777;
+  font-family: inherit; white-space: nowrap; transition: all 0.12s;
+}}
+.yr-pill:hover {{ border-color: #888; color: #111; }}
+.yr-pill.active {{ background: #111; color: #fff; border-color: #111; }}
+.year-sep {{ width: 1px; height: 18px; background: #e0e0e0; align-self: center; margin: 0 2px; }}
+
+/* ── Reset button ── */
+.reset-btn {{
+  font-size: 13px; color: #666; cursor: pointer; align-self: flex-end;
+  padding: 6px 14px; border: 1.5px solid #ddd; background: #fff;
+  font-family: inherit; border-radius: 5px; transition: all 0.12s; white-space: nowrap;
+}}
+.reset-btn:hover {{ border-color: #999; color: #111; }}
 
 /* ── School spotlight ── */
 #spotlight {{
   display: none;
-  background: #f2f2f2;
-  border-bottom: 1px solid #c0c0c0;
+  background: #f8f9fc;
+  border-bottom: 1px solid #e4e4e4;
   padding: 14px 0;
 }}
-.spotlight-inner {{ display: flex; gap: 36px; align-items: flex-start; flex-wrap: wrap; }}
-.spotlight-name {{ font-size: 20px; font-weight: 600; margin: 0 0 4px; }}
-.spotlight-meta {{ font-size: 15px; color: #444; }}
+.spotlight-inner {{ display: flex; gap: 32px; align-items: flex-start; flex-wrap: wrap; }}
+.spotlight-name {{ font-size: 18px; font-weight: 700; margin-bottom: 3px; color: #111; }}
+.spotlight-meta {{ font-size: 13px; color: #666; }}
 .spotlight-stats {{ display: flex; gap: 22px; margin-top: 10px; flex-wrap: wrap; }}
 .sstat {{ text-align: left; }}
-.sstat-val {{ font-size: 19px; font-weight: 600; }}
-.sstat-label {{ font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: #555; }}
-#spotlight-mini {{ flex: 1; min-width: 260px; height: 130px; }}
+.sstat-val {{ font-size: 20px; font-weight: 700; color: #111; font-variant-numeric: tabular-nums; }}
+.sstat-label {{ font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: #888; margin-top: 1px; }}
+#spotlight-mini {{ flex: 1; min-width: 240px; height: 120px; }}
 
-/* ── Sections ── */
-.section {{ padding: 26px 0 0; }}
-.section:last-of-type {{ padding-bottom: 28px; }}
+/* ── Content sections ── */
+main {{ outline: none; }}
+.section {{ padding: 22px 0 0; }}
+.section:last-of-type {{ padding-bottom: 36px; }}
 .section-title {{
-  font-size: 14px; font-variant: small-caps; letter-spacing: .06em;
-  color: #555; margin: 0 0 10px; text-transform: uppercase;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.12em; color: #aaa;
+  margin-bottom: 10px; text-transform: uppercase;
 }}
-.chart-pair {{ display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }}
-@media (max-width: 700px) {{ .chart-pair {{ grid-template-columns: 1fr; }} }}
-.chart-note {{ font-size: 13px; color: #666; margin: 5px 0 0; font-style: italic; }}
+.chart-note {{ font-size: 12px; color: #999; margin-top: 4px; font-style: italic; }}
 
-#timeline-chart {{ width: 100%; height: 540px; }}
-#gpa-chart {{ width: 100%; height: 300px; }}
-#grev-chart {{ width: 100%; height: 300px; }}
+/* ── Chart containers ── */
+#timeline-chart {{ width: 100%; height: 520px; }}
+#gpa-chart {{ width: 100%; height: 290px; }}
+#grev-chart {{ width: 100%; height: 290px; }}
+#greq-chart {{ width: 100%; height: 290px; }}
 #year-chart {{ width: 100%; height: 260px; }}
+
+.chart-triple {{
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+}}
+@media (max-width: 900px) {{ .chart-triple {{ grid-template-columns: 1fr 1fr; }} }}
+@media (max-width: 580px) {{ .chart-triple {{ grid-template-columns: 1fr; }} }}
 
 /* ── Table ── */
 .table-header {{
   display: flex; justify-content: space-between; align-items: baseline;
   margin-bottom: 8px;
 }}
-.record-count {{ font-size: 14px; color: #666; }}
-table {{ width: 100%; border-collapse: collapse; font-size: 15px; }}
+.record-count {{ font-size: 13px; color: #999; }}
+table {{ width: 100%; border-collapse: collapse; font-size: 14px; }}
 th {{
-  font-variant: small-caps; font-size: 13px; letter-spacing: .05em;
-  text-align: left; color: #555; padding: 6px 8px;
-  border-bottom: 1px solid #c0c0c0;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  text-align: left; color: #aaa; padding: 8px 10px 8px 8px;
+  border-bottom: 2px solid #e4e4e4;
   cursor: pointer; user-select: none; white-space: nowrap;
+  transition: color 0.1s; background: #fff;
 }}
-th:hover {{ color: #1a1a1a; }}
-th .arr {{ margin-left: 2px; opacity: 0.4; }}
+th:hover {{ color: #333; }}
+th.sorted {{ color: #111; }}
+th .arr {{ margin-left: 3px; opacity: 0.3; font-size: 11px; }}
 th.sorted .arr {{ opacity: 1; }}
-td {{ padding: 5px 8px; border-bottom: 1px solid #e5e5e5; }}
-tr:hover td {{ background: #f2f2f2; }}
-.dot {{
-  display: inline-block; width: 9px; height: 9px;
-  border-radius: 50%; margin-right: 5px; vertical-align: middle;
+td {{
+  padding: 6px 8px; border-bottom: 1px solid #f0f0f0;
+  color: #222; font-size: 14px;
 }}
+tr:last-child td {{ border-bottom: none; }}
+tbody tr:hover td {{ background: #f8f9fc; }}
+.dot {{
+  display: inline-block; width: 8px; height: 8px;
+  border-radius: 50%; margin-right: 5px; vertical-align: middle; flex-shrink: 0;
+}}
+td.null-cell {{ color: #ccc; }}
+
+/* ── Pagination ── */
 .pagination {{
-  display: flex; gap: 4px; align-items: center;
-  justify-content: flex-end; margin-top: 10px; font-size: 15px;
+  display: flex; gap: 3px; align-items: center;
+  justify-content: flex-end; margin-top: 12px; flex-wrap: wrap;
 }}
 .pbtn {{
-  border: 1px solid #c0c0c0; background: #fff; color: #1a1a1a;
-  padding: 3px 10px; cursor: pointer; font-size: 15px;
-  border-radius: 4px; font-family: inherit;
+  border: 1.5px solid #ddd; background: #fff; color: #333;
+  padding: 4px 10px; cursor: pointer; font-size: 13px;
+  border-radius: 5px; font-family: inherit; transition: all 0.1s;
 }}
-.pbtn:hover {{ background: #ebebeb; }}
-.pbtn.active {{ background: #1a1a1a; color: #fff; border-color: #1a1a1a; }}
-.pbtn:disabled {{ opacity: 0.35; cursor: default; }}
-.pinfo {{ color: #666; margin: 0 6px; font-size: 14px; }}
+.pbtn:hover {{ background: #f0f0f0; border-color: #aaa; }}
+.pbtn.active {{ background: #111; color: #fff; border-color: #111; }}
+.pbtn:disabled {{ opacity: 0.3; cursor: default; pointer-events: none; }}
+.pinfo {{ color: #aaa; margin: 0 4px; font-size: 13px; }}
 
 /* ── Footer ── */
 footer {{
-  border-top: 1px solid #c0c0c0;
-  padding: 18px 0; font-size: 14px; color: #666;
+  border-top: 1px solid #e4e4e4; padding: 20px 0;
+  font-size: 13px; color: #999; margin-top: 4px;
+}}
+footer a {{ color: #777; }}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {{
+  *, *::before, *::after {{ transition: none !important; animation: none !important; }}
 }}
 </style>
 </head>
 <body>
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
 <div class="container">
+  <header>
+    <h1>Political Science PhD Admissions</h1>
+    <p class="header-sub">
+      Self-reported outcomes from {n:,} PhD applicants, 2006–2026 &mdash;
+      data from <a href="https://www.thegradcafe.com">GradCafe</a> (self-reported, unverified)
+    </p>
+  </header>
+</div>
 
-<header>
-  <h1>Political Science PhD Admissions</h1>
-</header>
-
-<div class="filter-bar">
+<div class="filter-bar" role="search" aria-label="Filter admissions data">
   <div class="container">
     <div class="filter-inner">
+
       <div class="filter-group">
-        <span class="glabel">Programs</span>
-        <div class="scope-toggle">
-          <button class="scope-btn active" id="scope-featured">Featured (30)</button>
-          <button class="scope-btn" id="scope-all">All Programs</button>
-        </div>
-      </div>
-      <div class="filter-group" id="school-group-featured">
-        <span class="glabel">School</span>
-        <select id="school-select">
-          <option value="">All 30 featured</option>
+        <label class="glabel" for="school-select">Program</label>
+        <select id="school-select" aria-label="Filter by program">
+          <option value="">All programs</option>
+          <option value="top30">&#9733; Top 30 programs</option>
+          <optgroup label="Top 30 by U.S. News rank">
+            {top30_options_html}
+          </optgroup>
+          <optgroup label="All programs A&ndash;Z">
+            {all_options_html}
+          </optgroup>
         </select>
       </div>
-      <div class="filter-group" id="school-group-all" style="display:none">
-        <span class="glabel">School</span>
-        <div class="search-wrap">
-          <input type="text" id="school-search" placeholder="Type school name&hellip;" style="width:200px;padding-right:22px" autocomplete="off">
-          <button class="search-clear" id="search-clear" title="Clear">&times;</button>
-        </div>
-      </div>
-      <div class="filter-group">
-        <span class="glabel">Outcome</span>
+
+      <div class="filter-group" role="group" aria-labelledby="outcome-lbl">
+        <span class="glabel" id="outcome-lbl">Outcome</span>
         <div class="cb-group" id="dec-checkboxes">
-          <label><input type="checkbox" value="0" checked> Accepted</label>
-          <label><input type="checkbox" value="1" checked> Rejected</label>
-          <label><input type="checkbox" value="2" checked> Waitlisted</label>
-          <label><input type="checkbox" value="3" checked> Interview</label>
-          <label><input type="checkbox" value="4" checked> Other</label>
+          <label class="cb-label checked">
+            <input type="checkbox" value="0" checked aria-label="Accepted">
+            <span class="cb-swatch" style="background:{c_acc}"></span>Accepted
+          </label>
+          <label class="cb-label checked">
+            <input type="checkbox" value="1" checked aria-label="Rejected">
+            <span class="cb-swatch" style="background:{c_rej}"></span>Rejected
+          </label>
+          <label class="cb-label checked">
+            <input type="checkbox" value="2" checked aria-label="Waitlisted">
+            <span class="cb-swatch" style="background:{c_wl}"></span>Waitlisted
+          </label>
+          <label class="cb-label checked">
+            <input type="checkbox" value="3" checked aria-label="Interview">
+            <span class="cb-swatch" style="background:{c_int}"></span>Interview
+          </label>
+          <label class="cb-label checked">
+            <input type="checkbox" value="4" checked aria-label="Other">
+            <span class="cb-swatch" style="background:{c_oth}"></span>Other
+          </label>
         </div>
       </div>
-      <div class="filter-group">
-        <span class="glabel">Cycle Year</span>
+
+      <div class="filter-group" role="group" aria-labelledby="year-lbl">
+        <span class="glabel" id="year-lbl">Cycle Year</span>
         <div class="year-bar">
-          <button class="yr-shortcut active" id="yr-all">All years</button>
-          <button class="yr-shortcut" id="yr-last10">Last 10 years</button>
-          <button class="yr-shortcut" id="yr-last5">Last 5 years</button>
-          <button class="yr-shortcut" id="yr-last1">Last year</button>
-          <span style="color:#ddd;font-size:11px;align-self:center">|</span>
-          <div id="year-pills"></div>
+          <button class="yr-shortcut active" id="yr-all" aria-pressed="true">All years</button>
+          <button class="yr-shortcut" id="yr-last10" aria-pressed="false">Last 10</button>
+          <button class="yr-shortcut" id="yr-last5" aria-pressed="false">Last 5</button>
+          <button class="yr-shortcut" id="yr-last1" aria-pressed="false">Last year</button>
+          <div class="year-sep" role="separator" aria-hidden="true"></div>
+          <div id="year-pills" role="group" aria-label="Individual year toggles"></div>
         </div>
       </div>
-      <button class="reset-btn" id="reset-btn">Reset all</button>
+
+      <button class="reset-btn" id="reset-btn" aria-label="Reset all filters">Reset</button>
     </div>
   </div>
 </div>
 
-<div class="stats-strip" id="stats-strip">
+<div class="stats-strip" id="stats-strip" aria-live="polite" aria-atomic="true" aria-label="Summary statistics">
   <div class="stat-card">
     <div class="stat-num" id="stat-total">{n:,}</div>
     <div class="stat-label">Records</div>
@@ -520,73 +631,88 @@ footer {{
   </div>
 </div>
 
-<div id="spotlight">
-  <div class="container">
-    <div class="spotlight-inner">
-      <div>
-        <div class="spotlight-name" id="sp-name"></div>
-        <div class="spotlight-meta" id="sp-meta"></div>
-        <div class="spotlight-stats" id="sp-stats"></div>
-      </div>
-      <div id="spotlight-mini"></div>
+<main id="main-content" tabindex="-1">
+<div class="container">
+
+<div id="spotlight" role="region" aria-label="School details" aria-live="polite">
+  <div class="spotlight-inner">
+    <div>
+      <div class="spotlight-name" id="sp-name"></div>
+      <div class="spotlight-meta" id="sp-meta"></div>
+      <div class="spotlight-stats" id="sp-stats"></div>
     </div>
+    <div id="spotlight-mini" aria-hidden="true"></div>
   </div>
 </div>
 
-<div class="section">
-  <p class="section-title">Decision Timeline &mdash; all cycles overlaid (Nov&ndash;May)</p>
-  <p class="chart-note" style="margin:0 0 6px">Each dot is one reported decision. Same-day notifications stack by outcome. Hover for details.</p>
-  <div id="timeline-chart"></div>
-</div>
+<section class="section" aria-labelledby="timeline-title">
+  <p class="section-title" id="timeline-title">Decision Timeline &mdash; all cycles overlaid (Nov&ndash;May)</p>
+  <p class="chart-note" style="margin-bottom:6px">
+    Each dot is one self-reported decision. Same-day notifications stack vertically by outcome. Hover for details.
+  </p>
+  <div id="timeline-chart" role="img" aria-label="Decision timeline scatter plot"></div>
+</section>
 
-<div class="section">
-  <p class="section-title">GPA &amp; GRE-V Distributions by Outcome</p>
-  <div class="chart-pair">
+<section class="section" aria-labelledby="dist-title">
+  <p class="section-title" id="dist-title">Score Distributions by Outcome</p>
+  <div class="chart-triple">
     <div>
-      <div id="gpa-chart"></div>
+      <div id="gpa-chart" role="img" aria-label="GPA distribution by outcome"></div>
       <p class="chart-note" id="gpa-note"></p>
     </div>
     <div>
-      <div id="grev-chart"></div>
+      <div id="grev-chart" role="img" aria-label="GRE Verbal distribution by outcome"></div>
       <p class="chart-note" id="grev-note"></p>
     </div>
+    <div>
+      <div id="greq-chart" role="img" aria-label="GRE Quantitative distribution by outcome"></div>
+      <p class="chart-note" id="greq-note"></p>
+    </div>
   </div>
-</div>
+</section>
 
-<div class="section">
-  <p class="section-title">Reports per Cycle Year</p>
-  <div id="year-chart"></div>
-</div>
+<section class="section" aria-labelledby="trends-title">
+  <p class="section-title" id="trends-title">Reports per Cycle Year</p>
+  <div id="year-chart" role="img" aria-label="Line chart of reports per year by outcome"></div>
+</section>
 
-<div class="section">
+<section class="section" aria-labelledby="table-title">
   <div class="table-header">
-    <p class="section-title" style="margin:0">Data Records</p>
-    <span class="record-count" id="rec-count"></span>
+    <p class="section-title" style="margin:0" id="table-title">Data Records</p>
+    <span class="record-count" id="rec-count" aria-live="polite" aria-atomic="true"></span>
   </div>
-  <table id="data-table">
-    <thead><tr>
-      <th data-ci="0">School <span class="arr">&#x21D5;</span></th>
-      <th data-ci="1">Cycle <span class="arr">&#x21D5;</span></th>
-      <th data-ci="3">Decision <span class="arr">&#x21D5;</span></th>
-      <th data-ci="9">Date <span class="arr">&#x21D5;</span></th>
-      <th data-ci="5">GPA <span class="arr">&#x21D5;</span></th>
-      <th data-ci="6">GRE-V <span class="arr">&#x21D5;</span></th>
-      <th data-ci="7">GRE-Q <span class="arr">&#x21D5;</span></th>
-      <th data-ci="8">Status <span class="arr">&#x21D5;</span></th>
-    </tr></thead>
+  <table id="data-table" aria-label="Admissions data records">
+    <thead>
+      <tr>
+        <th data-ci="0" scope="col">School <span class="arr" aria-hidden="true">&#x21D5;</span></th>
+        <th data-ci="1" scope="col">Cycle <span class="arr" aria-hidden="true">&#x21D5;</span></th>
+        <th data-ci="3" scope="col">Decision <span class="arr" aria-hidden="true">&#x21D5;</span></th>
+        <th data-ci="9" scope="col">Date <span class="arr" aria-hidden="true">&#x21D5;</span></th>
+        <th data-ci="5" scope="col">GPA <span class="arr" aria-hidden="true">&#x21D5;</span></th>
+        <th data-ci="6" scope="col">GRE-V <span class="arr" aria-hidden="true">&#x21D5;</span></th>
+        <th data-ci="7" scope="col">GRE-Q <span class="arr" aria-hidden="true">&#x21D5;</span></th>
+        <th data-ci="8" scope="col">Status <span class="arr" aria-hidden="true">&#x21D5;</span></th>
+      </tr>
+    </thead>
     <tbody id="tbl-body"></tbody>
   </table>
-  <div class="pagination" id="pagination"></div>
+  <div class="pagination" id="pagination" role="navigation" aria-label="Table page navigation"></div>
+</section>
+
 </div>
+</main>
 
 <footer>
-  Data from <a href="https://www.thegradcafe.com">thegradcafe.com</a> (self-reported) and
-  <a href="https://github.com/deedy/gradcafe_data">deedy/gradcafe_data</a> (2006&ndash;2015).
-  No affiliation with GradCafe. Code:
-  <a href="https://github.com/nicolas-izquierdo/gradcafe-polisci">github.com/nicolas-izquierdo/gradcafe-polisci</a>
+  <div class="container">
+    Data from <a href="https://www.thegradcafe.com">GradCafe</a> (self-reported, unverified) and
+    <a href="https://github.com/deedy/gradcafe_data">deedy/gradcafe_data</a> (2006&ndash;2015).
+    Not affiliated with GradCafe. &nbsp;&middot;&nbsp;
+    Source: <a href="https://github.com/nicolas-izquierdo/gradcafe-polisci">github.com/nicolas-izquierdo/gradcafe-polisci</a>
+    &nbsp;&middot;&nbsp; Updated: {last_updated}
+  </div>
 </footer>
 
-</div><!-- /container -->
+</div><!-- /outer container -->
 
 <script>
 // ── Embedded data ────────────────────────────────────────────────────────
@@ -606,16 +732,18 @@ const DEC_COLORS = [COLORS.Accepted, COLORS.Rejected, COLORS.Waitlisted, COLORS.
 
 // ── State ────────────────────────────────────────────────────────────────
 let F = DATA.slice();
-let schoolFilter = "";
-let exactSchool = null;  // matched school name from SCHOOLS
+let exactSchool = null;
 let activeYears = new Set(FALL_YEARS);
 let activeDecs = new Set([0,1,2,3,4]);
-let top30Mode = true;
-let sortCI = 9;  // date
+let sortCI = 9;
 let sortDir = -1;
 let page = 1;
 const PG = 25;
-const CFG = {{responsive:true,displaylogo:false,modeBarButtonsToRemove:['toImage','select2d','lasso2d','sendDataToCloud']}};
+const CFG = {{
+  responsive: true,
+  displaylogo: false,
+  modeBarButtonsToRemove: ['toImage','select2d','lasso2d','sendDataToCloud'],
+}};
 
 // ── Build year pills ─────────────────────────────────────────────────────
 (function() {{
@@ -625,31 +753,15 @@ const CFG = {{responsive:true,displaylogo:false,modeBarButtonsToRemove:['toImage
     btn.className = 'yr-pill active';
     btn.textContent = y;
     btn.dataset.year = y;
+    btn.setAttribute('aria-pressed', 'true');
     container.append(btn);
-  }});
-}})();
-
-// ── Populate school select ───────────────────────────────────────────────
-(function() {{
-  const sel = document.getElementById('school-select');
-  const sorted = [...TOP30_IDXS].map(i => ({{i, name: SCHOOLS[i]}}))
-    .sort((a, b) => a.name.localeCompare(b.name));
-  sorted.forEach(({{i, name}}) => {{
-    const opt = document.createElement('option');
-    opt.value = i;
-    opt.textContent = name;
-    sel.append(opt);
   }});
 }})();
 
 // ── Utility ──────────────────────────────────────────────────────────────
 function fmt(v) {{
-  return (v===null||v===undefined||v==='') ? '<span style="color:#ddd">—</span>' : v;
-}}
-
-function pctStr(num, total) {{
-  if (!total) return '—';
-  return (100*num/total).toFixed(1)+'%';
+  if (v === null || v === undefined || v === '') return '<span style="color:#ccc">—</span>';
+  return v;
 }}
 
 function seasonLabel(r) {{
@@ -660,12 +772,12 @@ function tooltip(r) {{
   const school = SCHOOLS[r[0]] || '';
   const dec = DEC_NAMES[r[3]];
   const cy = seasonLabel(r);
-  let t = '<b>'+school+'</b><br>'+dec+' · '+cy;
-  if (r[9]) t += '<br>'+r[9];
-  if (r[5]!==null) t += '<br>GPA '+r[5].toFixed(2);
-  if (r[6]!==null) t += ' · GRE-V '+r[6];
-  if (r[7]!==null) t += ' · GRE-Q '+r[7];
-  if (r[8]<2) t += '<br>'+STATUS_NAMES[r[8]];
+  let t = '<b>' + school + '</b><br>' + dec + ' · ' + cy;
+  if (r[9]) t += '<br>' + r[9];
+  if (r[5] !== null) t += '<br>GPA ' + r[5].toFixed(2);
+  if (r[6] !== null) t += ' · GRE-V ' + r[6];
+  if (r[7] !== null) t += ' · GRE-Q ' + r[7];
+  if (r[8] < 2) t += '<br>' + STATUS_NAMES[r[8]];
   return t;
 }}
 
@@ -673,26 +785,17 @@ function tooltip(r) {{
 function applyFilters() {{
   exactSchool = null;
   const selEl = document.getElementById('school-select');
-  const selectedIdx = (top30Mode && selEl && selEl.value !== '') ? +selEl.value : -1;
-  const sq = top30Mode ? '' : schoolFilter.toLowerCase().trim();
+  const selVal = selEl ? selEl.value : '';
+  const isTop30Only = selVal === 'top30';
+  const selectedIdx = (!isTop30Only && selVal !== '') ? +selVal : -1;
 
-  if (top30Mode && selectedIdx >= 0) {{
+  if (selectedIdx >= 0) {{
     exactSchool = SCHOOLS[selectedIdx];
-  }} else if (!top30Mode && sq) {{
-    const matches = SCHOOLS.filter(s => s.toLowerCase().includes(sq));
-    exactSchool = matches.length === 1 ? matches[0] : null;
   }}
 
   F = DATA.filter(r => {{
-    if (top30Mode) {{
-      if (selectedIdx >= 0) {{
-        if (r[0] !== selectedIdx) return false;
-      }} else {{
-        if (!TOP30_IDXS.has(r[0])) return false;
-      }}
-    }} else {{
-      if (sq && !SCHOOLS[r[0]].toLowerCase().includes(sq)) return false;
-    }}
+    if (isTop30Only && !TOP30_IDXS.has(r[0])) return false;
+    if (selectedIdx >= 0 && r[0] !== selectedIdx) return false;
     if (!activeYears.has(r[1])) return false;
     if (!activeDecs.has(r[3])) return false;
     return true;
@@ -701,7 +804,7 @@ function applyFilters() {{
   renderAll();
 }}
 
-// ── Wire filters ─────────────────────────────────────────────────────────
+// ── Sync year shortcut button aria-pressed states ─────────────────────────
 function syncShortcutBtns() {{
   const maxY = FALL_YEARS.length ? Math.max(...FALL_YEARS) : 2026;
   const allActive = FALL_YEARS.every(y => activeYears.has(y));
@@ -717,65 +820,47 @@ function syncShortcutBtns() {{
   const last1Active = last1Yrs.length > 0
     && last1Yrs.every(y => activeYears.has(y))
     && FALL_YEARS.filter(y => y < maxY).every(y => !activeYears.has(y));
-  document.getElementById('yr-all').classList.toggle('active', allActive);
-  document.getElementById('yr-last10').classList.toggle('active', last10Active);
-  document.getElementById('yr-last5').classList.toggle('active', last5Active);
-  document.getElementById('yr-last1').classList.toggle('active', last1Active);
+
+  [['yr-all', allActive], ['yr-last10', last10Active],
+   ['yr-last5', last5Active], ['yr-last1', last1Active]]
+  .forEach(([id, isActive]) => {{
+    const el = document.getElementById(id);
+    el.classList.toggle('active', isActive);
+    el.setAttribute('aria-pressed', String(isActive));
+  }});
 }}
 
-let debounceTimer;
-document.getElementById('school-search').addEventListener('input', e => {{
-  schoolFilter = e.target.value;
-  document.getElementById('search-clear').classList.toggle('visible', schoolFilter.length > 0);
-  clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(applyFilters, 280);
-}});
-document.getElementById('search-clear').addEventListener('click', () => {{
-  document.getElementById('school-search').value = '';
-  schoolFilter = '';
-  document.getElementById('search-clear').classList.remove('visible');
-  applyFilters();
-}});
-document.getElementById('scope-featured').addEventListener('click', () => {{
-  if (top30Mode) return;
-  top30Mode = true;
-  document.getElementById('scope-featured').classList.add('active');
-  document.getElementById('scope-all').classList.remove('active');
-  document.getElementById('school-group-featured').style.display = '';
-  document.getElementById('school-group-all').style.display = 'none';
-  schoolFilter = '';
-  applyFilters();
-}});
-document.getElementById('scope-all').addEventListener('click', () => {{
-  if (!top30Mode) return;
-  top30Mode = false;
-  document.getElementById('scope-all').classList.add('active');
-  document.getElementById('scope-featured').classList.remove('active');
-  document.getElementById('school-group-featured').style.display = 'none';
-  document.getElementById('school-group-all').style.display = '';
-  document.getElementById('school-select').value = '';
-  applyFilters();
-}});
-document.getElementById('school-select').addEventListener('change', () => {{
-  applyFilters();
-}});
+// ── Event wiring ──────────────────────────────────────────────────────────
+document.getElementById('school-select').addEventListener('change', () => applyFilters());
+
 document.getElementById('dec-checkboxes').addEventListener('change', e => {{
+  const cb = e.target.closest('input[type="checkbox"]');
+  if (!cb) return;
   activeDecs.clear();
-  document.querySelectorAll('#dec-checkboxes input:checked').forEach(cb => activeDecs.add(+cb.value));
+  document.querySelectorAll('#dec-checkboxes input:checked').forEach(c => activeDecs.add(+c.value));
+  // Sync pill visual state
+  document.querySelectorAll('.cb-label').forEach(lbl => {{
+    lbl.classList.toggle('checked', lbl.querySelector('input').checked);
+  }});
   applyFilters();
 }});
+
 document.getElementById('year-pills').addEventListener('click', e => {{
   const pill = e.target.closest('.yr-pill');
   if (!pill) return;
   const y = +pill.dataset.year;
-  if (activeYears.has(y)) {{ activeYears.delete(y); pill.classList.remove('active'); }}
-  else {{ activeYears.add(y); pill.classList.add('active'); }}
+  const active = activeYears.has(y);
+  if (active) {{ activeYears.delete(y); }}
+  else {{ activeYears.add(y); }}
+  pill.classList.toggle('active', !active);
+  pill.setAttribute('aria-pressed', String(!active));
   syncShortcutBtns();
   applyFilters();
 }});
+
 document.getElementById('yr-all').addEventListener('click', () => {{
   activeYears = new Set(FALL_YEARS);
-  document.querySelectorAll('.yr-pill').forEach(p => p.classList.add('active'));
+  document.querySelectorAll('.yr-pill').forEach(p => {{ p.classList.add('active'); p.setAttribute('aria-pressed','true'); }});
   syncShortcutBtns();
   applyFilters();
 }});
@@ -783,7 +868,9 @@ document.getElementById('yr-last10').addEventListener('click', () => {{
   const maxY = FALL_YEARS.length ? Math.max(...FALL_YEARS) : 2026;
   activeYears = new Set(FALL_YEARS.filter(y => y >= maxY - 9));
   document.querySelectorAll('.yr-pill').forEach(p => {{
-    p.classList.toggle('active', +p.dataset.year >= maxY - 9);
+    const a = +p.dataset.year >= maxY - 9;
+    p.classList.toggle('active', a);
+    p.setAttribute('aria-pressed', String(a));
   }});
   syncShortcutBtns();
   applyFilters();
@@ -792,7 +879,9 @@ document.getElementById('yr-last5').addEventListener('click', () => {{
   const maxY = FALL_YEARS.length ? Math.max(...FALL_YEARS) : 2026;
   activeYears = new Set(FALL_YEARS.filter(y => y >= maxY - 4));
   document.querySelectorAll('.yr-pill').forEach(p => {{
-    p.classList.toggle('active', +p.dataset.year >= maxY - 4);
+    const a = +p.dataset.year >= maxY - 4;
+    p.classList.toggle('active', a);
+    p.setAttribute('aria-pressed', String(a));
   }});
   syncShortcutBtns();
   applyFilters();
@@ -801,24 +890,20 @@ document.getElementById('yr-last1').addEventListener('click', () => {{
   const maxY = FALL_YEARS.length ? Math.max(...FALL_YEARS) : 2026;
   activeYears = new Set(FALL_YEARS.filter(y => y === maxY));
   document.querySelectorAll('.yr-pill').forEach(p => {{
-    p.classList.toggle('active', +p.dataset.year === maxY);
+    const a = +p.dataset.year === maxY;
+    p.classList.toggle('active', a);
+    p.setAttribute('aria-pressed', String(a));
   }});
   syncShortcutBtns();
   applyFilters();
 }});
+
 document.getElementById('reset-btn').addEventListener('click', () => {{
-  top30Mode = true;
-  document.getElementById('scope-featured').classList.add('active');
-  document.getElementById('scope-all').classList.remove('active');
-  document.getElementById('school-group-featured').style.display = '';
-  document.getElementById('school-group-all').style.display = 'none';
   document.getElementById('school-select').value = '';
-  document.getElementById('school-search').value = '';
-  document.getElementById('search-clear').classList.remove('visible');
-  schoolFilter = '';
-  document.querySelectorAll('#dec-checkboxes input').forEach(cb => cb.checked=true);
+  document.querySelectorAll('#dec-checkboxes input').forEach(cb => cb.checked = true);
+  document.querySelectorAll('.cb-label').forEach(lbl => lbl.classList.add('checked'));
   activeYears = new Set(FALL_YEARS);
-  document.querySelectorAll('.yr-pill').forEach(p => p.classList.add('active'));
+  document.querySelectorAll('.yr-pill').forEach(p => {{ p.classList.add('active'); p.setAttribute('aria-pressed','true'); }});
   activeDecs = new Set([0,1,2,3,4]);
   syncShortcutBtns();
   applyFilters();
@@ -827,30 +912,24 @@ document.getElementById('reset-btn').addEventListener('click', () => {{
 // ── Stats strip ───────────────────────────────────────────────────────────
 function updateStats() {{
   const tot = F.length;
-  const acc = F.filter(r=>r[3]===0).length;
-  const progs = new Set(F.map(r=>r[0])).size;
+  const acc = F.filter(r => r[3] === 0).length;
+  const progs = new Set(F.map(r => r[0])).size;
   document.getElementById('stat-total').textContent = tot.toLocaleString();
-  document.getElementById('stat-pct').textContent = tot ? (100*acc/tot).toFixed(1)+'%' : '—';
+  document.getElementById('stat-pct').textContent = tot ? (100 * acc / tot).toFixed(1) + '%' : '—';
   document.getElementById('stat-programs').textContent = progs;
 }}
 
 // ── School spotlight ──────────────────────────────────────────────────────
 function renderSpotlight() {{
   const el = document.getElementById('spotlight');
+  const selEl = document.getElementById('school-select');
+  const selVal = selEl ? selEl.value : '';
 
-  let sidx = -1;
-  if (top30Mode) {{
-    const selEl = document.getElementById('school-select');
-    if (selEl && selEl.value !== '') sidx = +selEl.value;
-  }} else if (schoolFilter.trim()) {{
-    const sq = schoolFilter.toLowerCase().trim();
-    SCHOOLS.forEach((s, i) => {{ if (s.toLowerCase().includes(sq) && sidx < 0) sidx = i; }});
-  }}
+  if (!selVal || selVal === 'top30') {{ el.style.display = 'none'; return; }}
 
-  if (sidx < 0) {{ el.style.display='none'; return; }}
-
-  el.style.display='block';
-  const sname = SCHOOLS[sidx];
+  el.style.display = 'block';
+  const sidx = +selVal;
+  const sname = SCHOOLS[sidx] || '';
   const ss = SCHOOL_STATS[sname];
 
   document.getElementById('sp-name').textContent = sname;
@@ -858,49 +937,51 @@ function renderSpotlight() {{
   if (ss) {{
     const total = ss.total;
     const acc = ss.by_dec[0], rej = ss.by_dec[1], wl = ss.by_dec[2];
-    const accRate = total ? (100*acc/total).toFixed(1) : '—';
+    const accRate = total ? (100 * acc / total).toFixed(1) : '—';
     document.getElementById('sp-meta').textContent =
-      total+' total reports · '+accRate+'% reported accepted';
+      total.toLocaleString() + ' total reports · ' + accRate + '% reported accepted';
 
-    let statsHtml = '';
+    let h = '';
     if (ss.med_gpa_acc !== null)
-      statsHtml += '<div class="sstat"><div class="sstat-val">'+ss.med_gpa_acc.toFixed(2)+'</div><div class="sstat-label">Med. GPA (accepted)</div></div>';
+      h += '<div class="sstat"><div class="sstat-val">' + ss.med_gpa_acc.toFixed(2) + '</div><div class="sstat-label">Median GPA (accepted)</div></div>';
     if (ss.med_grev_acc !== null)
-      statsHtml += '<div class="sstat"><div class="sstat-val">'+ss.med_grev_acc+'</div><div class="sstat-label">Med. GRE-V (accepted)</div></div>';
-    statsHtml += '<div class="sstat"><div class="sstat-val">'+acc+'</div><div class="sstat-label">Accepted</div></div>';
-    statsHtml += '<div class="sstat"><div class="sstat-val">'+wl+'</div><div class="sstat-label">Waitlisted</div></div>';
-    statsHtml += '<div class="sstat"><div class="sstat-val">'+rej+'</div><div class="sstat-label">Rejected</div></div>';
-    document.getElementById('sp-stats').innerHTML = statsHtml;
+      h += '<div class="sstat"><div class="sstat-val">' + ss.med_grev_acc + '</div><div class="sstat-label">Median GRE-V (accepted)</div></div>';
+    if (ss.med_greq_acc !== null)
+      h += '<div class="sstat"><div class="sstat-val">' + ss.med_greq_acc + '</div><div class="sstat-label">Median GRE-Q (accepted)</div></div>';
+    h += '<div class="sstat"><div class="sstat-val" style="color:' + COLORS.Accepted + '">' + acc + '</div><div class="sstat-label">Accepted</div></div>';
+    h += '<div class="sstat"><div class="sstat-val" style="color:' + COLORS.Waitlisted + '">' + wl + '</div><div class="sstat-label">Waitlisted</div></div>';
+    h += '<div class="sstat"><div class="sstat-val" style="color:' + COLORS.Rejected + '">' + rej + '</div><div class="sstat-label">Rejected</div></div>';
+    document.getElementById('sp-stats').innerHTML = h;
 
-    // Mini year trend for this school
     const byYear = ss.by_year || {{}};
-    const years = Object.keys(byYear).map(Number).sort((a,b)=>a-b);
-    const miniTraces = [0,1,2].map(d => ({{
-      type:'bar', name:DEC_NAMES[d],
+    const years = Object.keys(byYear).map(Number).sort((a, b) => a - b);
+    const miniTraces = [0, 1, 2].map(d => ({{
+      type: 'bar', name: DEC_NAMES[d],
       x: years,
-      y: years.map(y => (byYear[y]||[0,0,0,0,0])[d]),
-      marker:{{color:DEC_COLORS[d], opacity:0.8}},
+      y: years.map(y => (byYear[y] || [0,0,0,0,0])[d]),
+      marker: {{ color: DEC_COLORS[d], opacity: 0.85 }},
       showlegend: false,
     }}));
     Plotly.react('spotlight-mini', miniTraces, {{
-      barmode:'stack',
-      paper_bgcolor:'#fafafa', plot_bgcolor:'#fafafa',
-      margin:{{l:28,r:8,t:8,b:28}},
-      xaxis:{{tickfont:{{size:13,color:'#555'}},tickformat:'d',gridcolor:'#d5d5d5'}},
-      yaxis:{{tickfont:{{size:13,color:'#555'}},gridcolor:'#d5d5d5',zeroline:false}},
-      showlegend:false,
-    }}, {{...CFG, staticPlot:false}});
+      barmode: 'stack',
+      paper_bgcolor: '#f8f9fc', plot_bgcolor: '#f8f9fc',
+      margin: {{ l: 30, r: 8, t: 6, b: 28 }},
+      xaxis: {{ tickfont: {{ size: 12, color: '#777' }}, tickformat: 'd', gridcolor: '#e4e4e4', zeroline: false }},
+      yaxis: {{ tickfont: {{ size: 12, color: '#777' }}, gridcolor: '#e4e4e4', zeroline: false }},
+      showlegend: false,
+    }}, {{ ...CFG, staticPlot: true }});
   }} else {{
-    document.getElementById('sp-meta').textContent = 'School not found in stats';
+    document.getElementById('sp-meta').textContent = 'No aggregate stats available for this school';
     document.getElementById('sp-stats').innerHTML = '';
+    Plotly.purge('spotlight-mini');
   }}
 }}
 
-// ── Timeline (stacked dots) ───────────────────────────────────────────────
+// ── Timeline ──────────────────────────────────────────────────────────────
 function renderTimeline() {{
   const isSingle = exactSchool !== null;
-  const dotSize    = isSingle ? 10 : 4;
-  const dotOpacity = isSingle ? 1.0 : 0.75;
+  const dotSize    = isSingle ? 9 : 4;
+  const dotOpacity = isSingle ? 0.9 : 0.65;
 
   const dayGroups = {{}};
   F.forEach((r, ri) => {{
@@ -919,7 +1000,7 @@ function renderTimeline() {{
 
   const traceType = isSingle ? 'scatter' : 'scattergl';
   const traces = [0,1,2,3,4].map(d => {{
-    const x=[], y=[], text=[];
+    const x = [], y = [], text = [];
     F.forEach((r, ri) => {{
       if (r[3] !== d || r[4] === null || stackY[ri] === null) return;
       x.push(r[4]);
@@ -927,24 +1008,29 @@ function renderTimeline() {{
       text.push(tooltip(r));
     }});
     return {{
-      type: traceType, mode:'markers', name:DEC_NAMES[d],
-      x, y, text, hovertemplate:'%{{text}}<extra></extra>',
-      marker:{{color:DEC_COLORS[d], size:dotSize, opacity:dotOpacity}},
+      type: traceType, mode: 'markers', name: DEC_NAMES[d],
+      x, y, text,
+      hovertemplate: '%{{text}}<extra></extra>',
+      marker: {{ color: DEC_COLORS[d], size: dotSize, opacity: dotOpacity }},
       visible: x.length > 0 ? true : 'legendonly',
     }};
   }});
 
-  const yPad = isSingle ? Math.max(2, Math.ceil(maxStack * 0.3)) : 4;
-  const tickvals=[0,30,61,92,120,151,181];
-  const ticktext=['Nov','Dec','Jan','Feb','Mar','Apr','May'];
+  const yPad = isSingle ? Math.max(2, Math.ceil(maxStack * 0.25)) : 4;
+  const tickvals = [0, 30, 61, 92, 120, 151, 181];
+  const ticktext = ['Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May'];
   Plotly.react('timeline-chart', traces, {{
-    paper_bgcolor:'#fff', plot_bgcolor:'#fff',
-    margin:{{l:8,r:16,t:6,b:40}},
-    xaxis:{{tickvals,ticktext,tickfont:{{size:14,color:'#555'}},
-            gridcolor:'#d5d5d5',gridwidth:1,zeroline:false,showline:false}},
-    yaxis:{{visible:false, range:[-1, maxStack + yPad], zeroline:false}},
-    legend:{{orientation:'h',x:0,y:-0.12,font:{{size:14}}}},
-    hovermode:'closest',
+    paper_bgcolor: '#fff', plot_bgcolor: '#fff',
+    margin: {{ l: 8, r: 16, t: 8, b: 44 }},
+    xaxis: {{
+      tickvals, ticktext,
+      tickfont: {{ size: 13, color: '#777' }},
+      gridcolor: '#ebebeb', gridwidth: 1,
+      zeroline: false, showline: false,
+    }},
+    yaxis: {{ visible: false, range: [-1, maxStack + yPad], zeroline: false }},
+    legend: {{ orientation: 'h', x: 0, y: -0.14, font: {{ size: 13, color: '#555' }} }},
+    hovermode: 'closest',
   }}, CFG);
 }}
 
@@ -952,66 +1038,85 @@ function renderTimeline() {{
 function renderScores() {{
   const gpas  = [[], [], [], [], []];
   const grevs = [[], [], [], [], []];
+  const greqs = [[], [], [], [], []];
+
   F.forEach(r => {{
-    if (r[5]!==null && r[5]>0 && r[5]<=4.5) gpas[r[3]].push(r[5]);
-    if (r[6]!==null) {{
-      // Accept both old (200-800) and new (130-170) GRE scales
-      if (r[6]>=130 && r[6]<=170) grevs[r[3]].push(r[6]);
-      // Old scale: skip (would require rescaling, confusing to mix)
-    }}
+    if (r[5] !== null && r[5] > 0 && r[5] <= 4.5)    gpas[r[3]].push(r[5]);
+    if (r[6] !== null && r[6] >= 130 && r[6] <= 170) grevs[r[3]].push(r[6]);
+    if (r[7] !== null && r[7] >= 130 && r[7] <= 170) greqs[r[3]].push(r[7]);
   }});
 
-  const showDecs = [0,1,2]; // Accepted, Rejected, Waitlisted
-  const gpaTraces = showDecs.filter(d=>gpas[d].length>=3).map(d => ({{
-    type:'box', name:DEC_NAMES[d], y:gpas[d],
-    boxpoints:'outliers', jitter:0.35, pointpos:0,
-    marker:{{color:DEC_COLORS[d], size:3, opacity:0.4}},
-    line:{{color:DEC_COLORS[d], width:1.5}},
-    fillcolor:DEC_COLORS[d]+'22',
-  }}));
-  const grevTraces = showDecs.filter(d=>grevs[d].length>=3).map(d => ({{
-    type:'box', name:DEC_NAMES[d], y:grevs[d],
-    boxpoints:'outliers', jitter:0.35, pointpos:0,
-    marker:{{color:DEC_COLORS[d], size:3, opacity:0.4}},
-    line:{{color:DEC_COLORS[d], width:1.5}},
-    fillcolor:DEC_COLORS[d]+'22',
-  }}));
+  const showDecs = [0, 1, 2];
+
+  function makeTraces(byDec) {{
+    return showDecs.filter(d => byDec[d].length >= 3).map(d => ({{
+      type: 'box', name: DEC_NAMES[d], y: byDec[d],
+      boxpoints: 'outliers', jitter: 0.3, pointpos: 0,
+      marker: {{ color: DEC_COLORS[d], size: 3, opacity: 0.35 }},
+      line: {{ color: DEC_COLORS[d], width: 2 }},
+      fillcolor: DEC_COLORS[d] + '25',
+      whiskerwidth: 0.5,
+    }}));
+  }}
 
   const baseLayout = {{
-    paper_bgcolor:'#fff', plot_bgcolor:'#fff',
-    margin:{{l:44,r:16,t:24,b:40}},
-    xaxis:{{tickfont:{{size:14,color:'#666'}},gridcolor:'#d5d5d5',zeroline:false}},
-    yaxis:{{tickfont:{{size:13,color:'#666'}},gridcolor:'#d5d5d5',zeroline:false}},
-    showlegend:false,
+    paper_bgcolor: '#fff', plot_bgcolor: '#fafafa',
+    margin: {{ l: 46, r: 12, t: 32, b: 36 }},
+    xaxis: {{ tickfont: {{ size: 13, color: '#888' }}, gridcolor: '#ebebeb', zeroline: false, showline: false }},
+    yaxis: {{ tickfont: {{ size: 12, color: '#888' }}, gridcolor: '#ebebeb', zeroline: false }},
+    showlegend: false,
+    shapes: [{{ type: 'rect', xref: 'paper', yref: 'paper', x0: 0, y0: 0, x1: 1, y1: 1,
+               line: {{ color: '#e4e4e4', width: 1 }} }}],
   }};
 
-  const gpaCount = gpas.flat().length;
+  const gpaCount  = gpas.flat().length;
   const grevCount = grevs.flat().length;
-  document.getElementById('gpa-note').textContent = gpaCount+' records with GPA data';
-  document.getElementById('grev-note').textContent = grevCount+' records with GRE-V data (new scale 130–170 only)';
+  const greqCount = greqs.flat().length;
 
-  Plotly.react('gpa-chart', gpaTraces.length ? gpaTraces : [{{type:'box',y:[],name:''}}],
-    {{...baseLayout, title:{{text:'GPA',font:{{size:15,color:'#999'}},x:0.04,xanchor:'left'}},
-      yaxis:{{...baseLayout.yaxis, range:[2.5,4.2]}}}}, CFG);
-  Plotly.react('grev-chart', grevTraces.length ? grevTraces : [{{type:'box',y:[],name:''}}],
-    {{...baseLayout, title:{{text:'GRE Verbal',font:{{size:15,color:'#999'}},x:0.04,xanchor:'left'}},
-      yaxis:{{...baseLayout.yaxis, range:[140,172]}}}}, CFG);
+  document.getElementById('gpa-note').textContent =
+    gpaCount.toLocaleString() + ' records with GPA data';
+  document.getElementById('grev-note').textContent =
+    grevCount.toLocaleString() + ' records · new scale (130–170) only';
+  document.getElementById('greq-note').textContent =
+    greqCount === 0
+      ? 'No GRE-Q data in current selection'
+      : greqCount.toLocaleString() + ' records · new scale only' +
+        (greqCount < 50 ? ' (very limited — rarely self-reported)' : '');
+
+  const emptyBox = [{{ type: 'box', y: [], name: '' }}];
+
+  Plotly.react('gpa-chart',
+    makeTraces(gpas).length ? makeTraces(gpas) : emptyBox,
+    {{ ...baseLayout,
+       title: {{ text: 'GPA', font: {{ size: 13, color: '#999' }}, x: 0.04, xanchor: 'left' }},
+       yaxis: {{ ...baseLayout.yaxis, range: [2.5, 4.22] }} }},
+    CFG);
+
+  Plotly.react('grev-chart',
+    makeTraces(grevs).length ? makeTraces(grevs) : emptyBox,
+    {{ ...baseLayout,
+       title: {{ text: 'GRE Verbal', font: {{ size: 13, color: '#999' }}, x: 0.04, xanchor: 'left' }},
+       yaxis: {{ ...baseLayout.yaxis, range: [138, 172] }} }},
+    CFG);
+
+  Plotly.react('greq-chart',
+    makeTraces(greqs).length ? makeTraces(greqs) : emptyBox,
+    {{ ...baseLayout,
+       title: {{ text: 'GRE Quantitative', font: {{ size: 13, color: '#999' }}, x: 0.04, xanchor: 'left' }},
+       yaxis: {{ ...baseLayout.yaxis, range: [138, 172] }} }},
+    CFG);
 }}
 
 // ── Year trends ───────────────────────────────────────────────────────────
 function renderYearTrends() {{
-  // Filter YEAR_STATS to activeYears
-  const years = Object.keys(YEAR_STATS).map(Number)
-    .filter(y => activeYears.has(y))
-    .sort((a,b)=>a-b);
-
-  // If school filter is active, compute year stats from filtered data
+  const hasSchoolFilter = exactSchool !== null;
+  const hasDecFilter = activeDecs.size < 5;
   let ys;
-  if (schoolFilter.trim()) {{
+  if (hasSchoolFilter || hasDecFilter) {{
     ys = {{}};
     F.forEach(r => {{
       const y = String(r[1]);
-      if (!ys[y]) ys[y] = [0,0,0,0,0,0];
+      if (!ys[y]) ys[y] = [0, 0, 0, 0, 0, 0];
       ys[y][r[3]]++;
       ys[y][5]++;
     }});
@@ -1021,23 +1126,26 @@ function renderYearTrends() {{
 
   const filtYears = Object.keys(ys).map(Number)
     .filter(y => activeYears.has(y))
-    .sort((a,b)=>a-b);
+    .sort((a, b) => a - b);
 
-  const traces = [0,1,2].map(d => ({{
-    type:'scatter', mode:'lines+markers', name:DEC_NAMES[d],
+  const traces = [0, 1, 2].map(d => ({{
+    type: 'scatter', mode: 'lines+markers', name: DEC_NAMES[d],
     x: filtYears,
-    y: filtYears.map(y => (ys[String(y)]||[0,0,0,0,0])[d]),
-    line:{{color:DEC_COLORS[d], width:2}},
-    marker:{{color:DEC_COLORS[d], size:5}},
+    y: filtYears.map(y => (ys[String(y)] || [0,0,0,0,0])[d]),
+    line: {{ color: DEC_COLORS[d], width: 2.5 }},
+    marker: {{ color: DEC_COLORS[d], size: 6, line: {{ color: '#fff', width: 1.5 }} }},
+    fill: 'tozeroy',
+    fillcolor: DEC_COLORS[d] + '12',
   }}));
 
   Plotly.react('year-chart', traces, {{
-    paper_bgcolor:'#fff', plot_bgcolor:'#fff',
-    margin:{{l:44,r:16,t:8,b:36}},
-    xaxis:{{tickfont:{{size:14,color:'#666'}},tickformat:'d',gridcolor:'#d5d5d5',zeroline:false}},
-    yaxis:{{tickfont:{{size:13,color:'#666'}},gridcolor:'#d5d5d5',zeroline:false}},
-    legend:{{orientation:'h',x:0,y:-0.2,font:{{size:14}}}},
-    hovermode:'x unified',
+    paper_bgcolor: '#fff', plot_bgcolor: '#fafafa',
+    margin: {{ l: 46, r: 16, t: 8, b: 40 }},
+    xaxis: {{ tickfont: {{ size: 13, color: '#888' }}, tickformat: 'd', gridcolor: '#ebebeb', zeroline: false }},
+    yaxis: {{ tickfont: {{ size: 12, color: '#888' }}, gridcolor: '#ebebeb', zeroline: false }},
+    legend: {{ orientation: 'h', x: 0, y: -0.22, font: {{ size: 13, color: '#555' }} }},
+    hovermode: 'x unified',
+    hoverlabel: {{ bgcolor: '#fff', bordercolor: '#e4e4e4', font: {{ size: 13 }} }},
   }}, CFG);
 }}
 
@@ -1046,77 +1154,88 @@ const THS = document.querySelectorAll('#data-table th[data-ci]');
 THS.forEach(th => {{
   th.addEventListener('click', () => {{
     const ci = +th.dataset.ci;
-    if (sortCI===ci) sortDir*=-1; else {{sortCI=ci; sortDir=-1;}}
-    THS.forEach(t => {{t.classList.remove('sorted'); t.querySelector('.arr').innerHTML='&#x21D5;';}});
+    if (sortCI === ci) {{ sortDir *= -1; }} else {{ sortCI = ci; sortDir = -1; }}
+    THS.forEach(t => {{
+      t.classList.remove('sorted');
+      t.querySelector('.arr').innerHTML = '&#x21D5;';
+      t.removeAttribute('aria-sort');
+    }});
     th.classList.add('sorted');
-    th.querySelector('.arr').innerHTML = sortDir===1 ? '&#x2191;' : '&#x2193;';
+    th.querySelector('.arr').innerHTML = sortDir === 1 ? '&#x2191;' : '&#x2193;';
+    th.setAttribute('aria-sort', sortDir === 1 ? 'ascending' : 'descending');
     renderTable();
   }});
 }});
 
 function sortedF() {{
-  const ci=sortCI, sd=sortDir;
-  return F.slice().sort((a,b) => {{
-    let av=a[ci], bv=b[ci];
-    const nil = sd===1 ? '￿' : '';
-    if (av===null||av===undefined||av==='') av=nil;
-    if (bv===null||bv===undefined||bv==='') bv=nil;
-    if (av<bv) return -sd; if (av>bv) return sd; return 0;
+  const ci = sortCI, sd = sortDir;
+  return F.slice().sort((a, b) => {{
+    let av = a[ci], bv = b[ci];
+    const nil = sd === 1 ? '￿' : '';
+    if (av === null || av === undefined || av === '') av = nil;
+    if (bv === null || bv === undefined || bv === '') bv = nil;
+    if (av < bv) return -sd;
+    if (av > bv) return sd;
+    return 0;
   }});
 }}
 
 function renderTable() {{
   const data = sortedF();
   const total = data.length;
-  const totalPages = Math.max(1,Math.ceil(total/PG));
-  if (page>totalPages) page=totalPages;
-  const slice = data.slice((page-1)*PG, page*PG);
+  const totalPages = Math.max(1, Math.ceil(total / PG));
+  if (page > totalPages) page = totalPages;
+  const slice = data.slice((page - 1) * PG, page * PG);
 
-  document.getElementById('rec-count').textContent = total.toLocaleString()+' records';
+  document.getElementById('rec-count').textContent = total.toLocaleString() + ' records';
 
   const tbody = document.getElementById('tbl-body');
   tbody.innerHTML = slice.map(r => {{
     const dot = `<span class="dot" style="background:${{DEC_COLORS[r[3]]}}"></span>`;
-    const gpa = r[5]!==null ? r[5].toFixed(2) : '';
+    const gpa = r[5] !== null ? r[5].toFixed(2) : '';
     const cy = seasonLabel(r);
     return `<tr>
-      <td>${{SCHOOLS[r[0]]||''}}</td>
+      <td>${{SCHOOLS[r[0]] || ''}}</td>
       <td>${{cy}}</td>
       <td>${{dot}}${{DEC_NAMES[r[3]]}}</td>
-      <td>${{r[9]||''}}</td>
+      <td>${{r[9] || ''}}</td>
       <td>${{fmt(gpa)}}</td>
       <td>${{fmt(r[6])}}</td>
       <td>${{fmt(r[7])}}</td>
-      <td>${{r[8]<2?STATUS_NAMES[r[8]]:''}}</td>
+      <td>${{r[8] < 2 ? STATUS_NAMES[r[8]] : ''}}</td>
     </tr>`;
   }}).join('');
 
-  renderPagination(total,totalPages);
+  renderPagination(total, totalPages);
 }}
 
 function renderPagination(total, totalPages) {{
   const el = document.getElementById('pagination');
-  if (totalPages<=1) {{el.innerHTML=''; return;}}
-  let h=`<button class="pbtn" id="pp" ${{page===1?'disabled':''}}>&#8592;</button>`;
-  const pages=[];
-  if (totalPages<=7) for (let i=1;i<=totalPages;i++) pages.push(i);
-  else {{
+  if (totalPages <= 1) {{ el.innerHTML = ''; return; }}
+  let h = `<button class="pbtn" id="pp" ${{page === 1 ? 'disabled' : ''}} aria-label="Previous page">&#8592;</button>`;
+  const pages = [];
+  if (totalPages <= 7) {{
+    for (let i = 1; i <= totalPages; i++) pages.push(i);
+  }} else {{
     pages.push(1);
-    if (page>3) pages.push('…');
-    for (let i=Math.max(2,page-1);i<=Math.min(totalPages-1,page+1);i++) pages.push(i);
-    if (page<totalPages-2) pages.push('…');
+    if (page > 3) pages.push('…');
+    for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) pages.push(i);
+    if (page < totalPages - 2) pages.push('…');
     pages.push(totalPages);
   }}
   pages.forEach(p => {{
-    if (p==='…') h+=`<span class="pinfo">…</span>`;
-    else h+=`<button class="pbtn${{p===page?' active':''}}" data-p="${{p}}">${{p}}</button>`;
+    if (p === '…') h += `<span class="pinfo" aria-hidden="true">…</span>`;
+    else h += `<button class="pbtn${{p === page ? ' active' : ''}}" data-p="${{p}}" aria-label="Page ${{p}}" aria-current="${{p === page ? 'page' : 'false'}}">${{p}}</button>`;
   }});
-  h+=`<button class="pbtn" id="np" ${{page===totalPages?'disabled':''}}>&#8594;</button>`;
-  h+=`<span class="pinfo">Page ${{page}} of ${{totalPages}}</span>`;
-  el.innerHTML=h;
-  el.querySelectorAll('.pbtn[data-p]').forEach(b => b.addEventListener('click',()=>{{page=+b.dataset.p;renderTable();}}));
-  const pp=el.querySelector('#pp'); if(pp) pp.addEventListener('click',()=>{{page--;renderTable();}});
-  const np=el.querySelector('#np'); if(np) np.addEventListener('click',()=>{{page++;renderTable();}});
+  h += `<button class="pbtn" id="np" ${{page === totalPages ? 'disabled' : ''}} aria-label="Next page">&#8594;</button>`;
+  h += `<span class="pinfo">Page ${{page}} of ${{totalPages}}</span>`;
+  el.innerHTML = h;
+  el.querySelectorAll('.pbtn[data-p]').forEach(b =>
+    b.addEventListener('click', () => {{ page = +b.dataset.p; renderTable(); }}));
+  const pp = el.querySelector('#pp');
+  if (pp) pp.addEventListener('click', () => {{ page--; renderTable(); }});
+  const np = el.querySelector('#np');
+  if (np) np.addEventListener('click', () => {{ page++; renderTable(); }});
 }}
 
 // ── Render all ────────────────────────────────────────────────────────────
@@ -1155,12 +1274,10 @@ def run(recent_only: bool = False, test_seasons: list | None = None, html_only: 
         print(f"HTML written ({len(html):,} bytes)")
         return
 
-    # Load Deedy baseline — PhD only
     all_deedy = load_deedy_baseline()
     deedy_rows = [r for r in all_deedy if r.get("degree") == "PhD"]
     print(f"  Deedy PhD rows: {len(deedy_rows)} (of {len(all_deedy)} total)")
 
-    # Determine seasons to scrape
     if test_seasons:
         seasons = test_seasons
     elif recent_only:
@@ -1168,14 +1285,11 @@ def run(recent_only: bool = False, test_seasons: list | None = None, html_only: 
     else:
         seasons = ALL_SEASONS
 
-    # Load existing CSV if doing recent update
     existing = load_existing_csv() if recent_only else []
 
-    # Scrape (PhD only — scraper.py has degrees=["PhD"])
     print(f"Scraping seasons: {seasons}")
     scraped = scrape_gradcafe(seasons)
 
-    # Merge
     if recent_only:
         existing_deedy = [r for r in existing if r.get("source") == "deedy_2015"]
         existing_scraped = [r for r in existing if r.get("source") != "deedy_2015"]
@@ -1183,17 +1297,12 @@ def run(recent_only: bool = False, test_seasons: list | None = None, html_only: 
     else:
         all_rows = merge_and_dedup(deedy_rows, scraped)
 
-    # Sort by date_posted desc
     all_rows.sort(key=lambda r: r.get("date_posted") or "", reverse=True)
-
-    # Save CSV
     save_csv(all_rows)
 
-    # Write last_updated
     today = date.today().isoformat()
     LAST_UPDATED_PATH.write_text(today)
 
-    # Generate HTML
     print("Generating docs/index.html ...")
     html = generate_html(all_rows, today)
     HTML_PATH.write_text(html, encoding="utf-8")

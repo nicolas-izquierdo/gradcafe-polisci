@@ -309,12 +309,15 @@ def _parse_page(html: str, degree_label: str, season: str) -> list[dict]:
                     # GRE V
                     elif re.match(r'GRE\s*V', part, re.IGNORECASE):
                         gre_v = _safe_int(re.sub(r'GRE\s*V', '', part, flags=re.IGNORECASE).strip())
-                    # GRE Q
+                    # GRE Q (explicit label)
                     elif re.match(r'GRE\s*Q', part, re.IGNORECASE):
                         gre_q = _safe_int(re.sub(r'GRE\s*Q', '', part, flags=re.IGNORECASE).strip())
                     # GRE AW / Writing
                     elif re.match(r'GRE\s*(AW|W)', part, re.IGNORECASE):
                         gre_w = _safe_float(re.sub(r'GRE\s*(AW|W)', '', part, flags=re.IGNORECASE).strip())
+                    # GRE NNN (no letter prefix) = GRE Quantitative (GradCafe convention)
+                    elif re.match(r'GRE\s+\d', part, re.IGNORECASE):
+                        gre_q = _safe_int(re.sub(r'GRE\s*', '', part, flags=re.IGNORECASE).strip())
             i += 1
 
         rowid = _make_rowid([school_raw, detail_season, date_posted, decision_raw])
